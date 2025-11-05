@@ -24,9 +24,9 @@ try:
 except ImportError:
     print("警告: 无法导入 llmconfig，将使用默认配置")
     class MockLLMConfig:
-        API_KEY = "your key"
-        BASE_URL = "your url"  
-        MODEL = "gemini-2.5-pro-preview-06-05"
+        API_KEY = "sk-4201f908ffb241d0b4f2eaaf81048add"
+        BASE_URL = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"  
+        MODEL = "qwen-vl-plus"
     llmconfig = MockLLMConfig()
 
 from avdag.verifier import verify_task_folder, VerifierOptions, make_llm_options
@@ -170,6 +170,7 @@ class UniversalTestRunner:
         rule_file = self.config['task_types'][task_type]['rule_file']
         return os.path.join(self.base_dir, rules_base, rule_file)
     
+    ########################################################################################################################
     def _get_data_path(self, task_type: str, trace_id: Union[str, int]) -> str:
         """获取数据路径"""
         data_base = self.config['data_base_dir']

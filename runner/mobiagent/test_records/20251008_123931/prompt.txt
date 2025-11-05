@@ -1,0 +1,10 @@
+PROMPT:
+
+    Based on the screenshot, user's intent and the description of the target UI element, provide the bounding box of the element using **absolute coordinates**.
+    User's intent: 我已经进入到了相机主界面，现在我需要点击“拍摄”按钮来进行拍照。
+    Target element's description: 拍摄按钮
+    Your output should be a JSON object with the following format:
+    {"bbox": [x1, y1, x2, y2]}
+
+RESPONSE:
+{"bbox": [259, 1163, 387, 1278]}

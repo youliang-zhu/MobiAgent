@@ -163,11 +163,11 @@ decider_prompt_template_zh = """
 {history}
 请根据截图和你的操作历史提供下一步操作。在提供操作之前，你需要进行仔细的推理。
 你的操作范围包括：
-- 名称：点击（click），参数：目标元素（target_element，对要点击的UI元素的高级描述）。
-- 名称：滑动（swipe），参数：方向（direction，UP、DOWN、LEFT、RIGHT中的一个）。
-- 名称：输入（input），参数：文本（text，要输入的文本）。
-- 名称：等待（wait），参数：（无参数，将等待1秒）。
-- 名称：完成（done），参数：（无参数）。
+- 名称：click，参数：target_element，对要点击的UI元素的高级描述。
+- 名称：swipe，参数：direction，UP、DOWN、LEFT、RIGHT中的一个。
+- 名称：input，参数：text，要输入的文本。
+- 名称：wait，参数：no parameter，将等待1秒。
+- 名称：done，参数：no parameter。
 你的输出应该是一个如下格式的JSON对象：
 {{"reasoning": "你的推理分析过程在此", "action": "下一步操作（click、input、swipe、done中的一个）", "parameters": {{"param1": "value1", ...}}}}"""
 
@@ -301,6 +301,8 @@ def task_in_app(app, old_task, task, device, data_dir, bbox_flag=True):
         reacts.append(converted_item)
         action = decider_response["action"]
 
+        # print("Next action:*************************************************************", action)
+
         # compute image index for this loop iteration (1-based)
         image_index = len(actions) + 1
         current_dir = os.getcwd()
@@ -332,7 +334,7 @@ def task_in_app(app, old_task, task, device, data_dir, bbox_flag=True):
             reasoning = decider_response["reasoning"]
             target_element = decider_response["parameters"]["target_element"]
             grounder_prompt = (grounder_prompt_template_bbox if bbox_flag else grounder_prompt_template_no_bbox).format(reasoning=reasoning, description=target_element)
-            # logging.info(f"Grounder prompt: \n{grounder_prompt}")
+            logging.info(f"Grounder prompt: \n{grounder_prompt}")
             
             grounder_response_str = grounder_client.chat.completions.create(
                 model="",

@@ -14,7 +14,7 @@ def quick_start():
     # 获取模型服务地址
     model_url = input("请输入模型服务地址 (默认: http://192.168.12.152:8000/v1): ").strip()
     if not model_url:
-        model_url = "http://192.168.12.152:8000/v1"
+        model_url = "http://localhost:8000/v1"
     
     # 配置
     config = ExecutionConfig(
@@ -34,7 +34,7 @@ def quick_start():
         return
     
     # 执行淘宝购物任务
-    task_description = "饿了么中帮我点蜜雪冰城的芋圆葡萄，要少冰，5分糖，加珍珠"
+    task_description = "打开淘宝，找到一款价格在100元以内的蓝牙耳机，加入购物车并结算。"
     
     print(f"\n开始执行任务: {task_description}")
     print("-" * 50)

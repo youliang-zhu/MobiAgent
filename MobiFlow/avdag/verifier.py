@@ -686,7 +686,9 @@ def make_llm_options(api_key: str, base_url: str, model: str = "google/gemini-2.
         ]
         
         llm_logger = get_llm_logger()
-        llm_logger.debug(f"prompt with {len(image_contents)} images: {text_content}")
+        # 记录完整的prompt信息（包括system message和user message）
+        llm_logger.debug(f"=== LLM调用 - System Prompt ===\n{sys}")
+        llm_logger.debug(f"=== LLM调用 - User Prompt (with {len(image_contents)} images) ===\n{text_content}")
         
         # 重试配置
         max_retries = 3  # 默认值

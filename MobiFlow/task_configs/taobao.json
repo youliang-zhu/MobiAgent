@@ -3,7 +3,7 @@
   "description": "淘宝任务测试配置", 
   
   "rules_base_dir": "task_rules/taobao",
-  "data_base_dir": "data/taobao",
+  "data_base_dir": "../run_test_data/mobiagent/taobao",
   
   "task_types": {
     "type3": {
@@ -36,7 +36,9 @@
   },
 
   "output": {
-    "summary_file": "test-{task_name}-summary-{timestamp}.txt",
-    "detailed_results_file": "test-{task_name}-detailed-{timestamp}.json"
+    "output_dir": "../run_test_data/mobiagent/taobao/results/{timestamp}",
+    "summary_file": "test-{task_name}-summary.txt",
+    "detailed_results_file": "test-{task_name}-detailed.json",
+    "log_file": "test-{task_name}.log"
   }
 }

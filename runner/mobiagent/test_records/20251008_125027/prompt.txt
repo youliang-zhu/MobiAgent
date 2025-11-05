@@ -1,0 +1,10 @@
+PROMPT:
+
+    Based on the screenshot, user's intent and the description of the target UI element, provide the bounding box of the element using **absolute coordinates**.
+    User's intent: 我已经进入到了uber eat主界面，现在我需要点击“寿司”图标按钮进入到寿司相关的外卖菜单。
+    Target element's description: 寿司图标按钮
+    Your output should be a JSON object with the following format:
+    {"bbox": [x1, y1, x2, y2]}
+
+RESPONSE:
+{"bbox": [36, 379, 145, 518]}

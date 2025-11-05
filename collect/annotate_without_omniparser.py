@@ -12,7 +12,7 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 import base64, re
 import json
 
-from utils.parse_omni import extract_all_bounds, find_clicked_element
+# from utils.parse_omni import extract_all_bounds, find_clicked_element
 
 from utils.load_md_prompt import load_prompt
 
@@ -145,40 +145,40 @@ def add_action_index(actions):
     return actions
 
 def add_bounds_to_action(root, actions):
-    for i, action in enumerate(actions):
-        flag = False
+    # for i, action in enumerate(actions):
+    #     flag = False
 
-        if action["type"] == "click":
-            if not "bounds" in action:
-                print(f"[Add Bounds] {root} Action {i + 1} no bounds, adding bounds")
-                flag = True
-            elif action["bounds"] is None:
-                print(f"[Add Bounds] {root} Action {i + 1} bounds is None, adding bounds")
-                flag = True
+    #     if action["type"] == "click":
+    #         if not "bounds" in action:
+    #             print(f"[Add Bounds] {root} Action {i + 1} no bounds, adding bounds")
+    #             flag = True
+    #         elif action["bounds"] is None:
+    #             print(f"[Add Bounds] {root} Action {i + 1} bounds is None, adding bounds")
+    #             flag = True
 
-            # bounds = action.get("bounds", None)
-            # if bounds is not None:
-            #     x1, y1, x2, y2 = bounds
-            #     # if x1 < 50 and x2 > 950:
-            #     if x1 < 100 and x2 > 950:
-            #         print(f"[Add Bounds] {root} Action {i + 1} bounds is Special")
-            #         flag = True
+    #         # bounds = action.get("bounds", None)
+    #         # if bounds is not None:
+    #         #     x1, y1, x2, y2 = bounds
+    #         #     # if x1 < 50 and x2 > 950:
+    #         #     if x1 < 100 and x2 > 950:
+    #         #         print(f"[Add Bounds] {root} Action {i + 1} bounds is Special")
+    #         #         flag = True
 
-        # flag = action["type"] == "click"
+    #     # flag = action["type"] == "click"
 
-        if flag:
-            img_path = os.path.join(root, f"{i + 1}.jpg")
-            if not os.path.exists(img_path):
-                raise Exception(f"[Add Bounds] Image not found: {img_path}")
+    #     if flag:
+    #         img_path = os.path.join(root, f"{i + 1}.jpg")
+    #         if not os.path.exists(img_path):
+    #             raise Exception(f"[Add Bounds] Image not found: {img_path}")
                    
-            # actions[i]["bounds"] = None         
-            # bounds_list = extract_all_bounds(img_path)
-            # actions[i]["bounds"] = find_clicked_element(bounds_list, action["position_x"], action["position_y"])
+    #         # actions[i]["bounds"] = None         
+    #         # bounds_list = extract_all_bounds(img_path)
+    #         # actions[i]["bounds"] = find_clicked_element(bounds_list, action["position_x"], action["position_y"])
 
-            bounds_list = extract_all_bounds(img_path)
-            if "bounds" in action and action["bounds"]:
-                bounds_list.append(action["bounds"])
-            actions[i]["bounds"] = find_clicked_element(bounds_list, action["position_x"], action["position_y"])
+    #         bounds_list = extract_all_bounds(img_path)
+    #         if "bounds" in action and action["bounds"]:
+    #             bounds_list.append(action["bounds"])
+    #         actions[i]["bounds"] = find_clicked_element(bounds_list, action["position_x"], action["position_y"])
 
     return actions
 
@@ -231,11 +231,11 @@ def visual_prompt(root, actions):
         # 拉框
         bounds_path = os.path.join(root, f"{i + 1}_bounds.jpg")
         img_bounds = Image.open(save_path)
-        draw_bounds = ImageDraw.Draw(img_bounds)
-        if action["type"] == "click" or action["type"] == "long_press":
-            if "bounds" in action and action["bounds"]:
-                draw_bounds.rectangle(action["bounds"], outline='red', width=5)
-                img_bounds.save(bounds_path)
+        # draw_bounds = ImageDraw.Draw(img_bounds)
+        # if action["type"] == "click" or action["type"] == "long_press":
+        #     if "bounds" in action and action["bounds"]:
+        #         draw_bounds.rectangle(action["bounds"], outline='red', width=5)
+        img_bounds.save(bounds_path)
         # 画点
         with open(save_path, 'rb') as f:
             image_data = f.read()
