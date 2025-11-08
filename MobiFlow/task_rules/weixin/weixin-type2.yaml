@@ -62,7 +62,7 @@ nodes:
 - id: initiate_call_menu
   name: 打开通话选项菜单
   condition:
-    type: juxtaposition
+    type: escalate
     params:
       ocr:
         all: ["相册", "拍摄", "视频通话", "位置", "红包", "礼物"]

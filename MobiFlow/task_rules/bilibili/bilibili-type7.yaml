@@ -19,7 +19,7 @@ nodes:
   name: 输入关键词并执行搜索
   score: 10
   condition:
-    type: juxtaposition
+    type: escalate
     params:
       ocr:
         all: ["搜索", "搜索历史", "热搜"]
@@ -31,7 +31,7 @@ nodes:
 - id: confirm_follow
   name: 确认关注成功
   condition:
-    type: juxtaposition
+    type: escalate
     params:
       ocr:
         any: ["已关注", "关注"]

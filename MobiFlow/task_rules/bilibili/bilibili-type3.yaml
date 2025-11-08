@@ -21,7 +21,7 @@ nodes:
   name: 查看搜索结果
   score: 60
   condition:
-    type: juxtaposition
+    type: escalate
     params:
       ocr:
         all: ["综合", "番剧", "直播", "用户", "粉丝" ,"关注"]

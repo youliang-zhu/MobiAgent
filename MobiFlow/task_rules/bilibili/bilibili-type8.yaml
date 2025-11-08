@@ -42,7 +42,7 @@ nodes:
 - id: select_video_detail
   name: 进入视频播放详情页
   condition:
-    type: juxtaposition
+    type: escalate
     params:
       ocr:
         all: ["简介", "评论", "点我发弹幕"]
@@ -66,7 +66,7 @@ nodes:
 - id: input_and_publish_comment
   name: 输入并发表评论
   condition:
-    type: juxtaposition
+    type: escalate
     params:
       ocr:
         all: ["发布", "转到动态"]
@@ -78,7 +78,7 @@ nodes:
 # - id: verify_comment_published
 #   name: 验证评论发布成功
 #   condition:
-#     type: juxtaposition
+#     type: escalate
 #     params:
 #       ocr:
 #         any: ["发布成功", "评论发送成功", "审核", "我的评论", "删除", "撤回"]

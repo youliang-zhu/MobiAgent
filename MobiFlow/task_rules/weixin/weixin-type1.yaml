@@ -8,8 +8,8 @@ nodes:
   condition:
     type: escalate
     params:
-      icons:
-        all: ["icon_001_通讯录","icon_002_微信","icon_000_我"]
+      # icons:
+      #   all: ["icon_001_通讯录","icon_002_微信","icon_000_我"]
       ocr:
         all: ["微信", "通讯录","发现","我"]
       llm:
@@ -32,10 +32,10 @@ nodes:
 - id: send_message_success
   name: 成功发送消息
   condition:
-    type: juxtaposition
+    type: escalate
     params:
-      icons:
-        any: ["icon_001_回车","icon_002_发送"]
+      # icons:
+      #   any: ["icon_001_回车","icon_002_发送"]
       ocr:
         all: ["发送"]
       llm:

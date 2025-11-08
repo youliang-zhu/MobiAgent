@@ -46,6 +46,7 @@ class TestResult:
     manual_review_needed: bool
     execution_time: float
     error_message: str = ""
+    action_count: int = 0  # 任务执行的步数
 
 @dataclass 
 class TestSummary:
@@ -368,6 +369,18 @@ class UniversalTestRunner:
             # 执行验证
             res = verify_task_folder(rule_file, data_path, self.opts)
             
+            # 读取 actions.json 获取步数
+            action_count = 0
+            actions_file = os.path.join(data_path, 'actions.json')
+            if os.path.exists(actions_file):
+                try:
+                    with open(actions_file, 'r', encoding='utf-8') as f:
+                        actions_data = json.load(f)
+                        action_count = actions_data.get('action_count', 0)
+                except Exception as e:
+                    print(f"警告: 读取 actions.json 失败: {e}")
+                    action_count = 0
+            
             # 构建结果
             matched_nodes = [m.node_id for m in res.matched] if res.matched else []
             execution_time = time.time() - start_time
@@ -381,7 +394,8 @@ class UniversalTestRunner:
                 matched_nodes=matched_nodes,
                 reason=res.reason or "",
                 manual_review_needed=res.manual_review_needed,
-                execution_time=execution_time
+                execution_time=execution_time,
+                action_count=action_count
             )
             
             # 输出结果

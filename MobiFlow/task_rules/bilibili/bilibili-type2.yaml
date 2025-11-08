@@ -45,7 +45,7 @@ nodes:
   name: 查看搜索结果
   score: 10
   condition:
-    type: juxtaposition
+    type: escalate
     params:
       ocr:
         all: ["综合", "番剧", "直播", "用户"]
@@ -77,7 +77,7 @@ nodes:
 # - id: video_is_playing
 #   name: 视频正在播放
 #   condition:
-#     type: juxtaposition
+#     type: escalate
 #     params:
 #       ocr:
 #         all: ["弹幕", "点赞", "投币", "收藏", "分享", "全屏", "暂停", "倍速", "发弹幕", "弹幕列表"]

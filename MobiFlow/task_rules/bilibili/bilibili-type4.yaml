@@ -20,7 +20,7 @@ nodes:
   name: 查看搜索结果
   score: 30
   condition:
-    type: juxtaposition
+    type: escalate
     params:
       ocr:
         all: ["综合", "番剧", "直播", "用户", "关注"]
@@ -33,7 +33,7 @@ nodes:
   name: 进入UP主个人主页
   score: 40
   condition:
-    type: juxtaposition
+    type: escalate
     params:
       ocr:
         all: ["主页", "动态", "投稿"]
