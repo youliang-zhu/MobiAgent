@@ -1,177 +1,205 @@
-<div align="center">
-  <picture>
-    <img alt="MobiAgent" src="assets/logo.png" width=10%>
-  </picture>
-</div>
+# 📱 MobiAgent/UI-TARS 移动端代理项目运行指南
 
-<h3 align="center">
-MobiAgent: A Systematic Framework for Customizable Mobile Agents
-</h3>
+本项目旨在研究和复现移动端多模态大语言模型（MLLM）在手机上的推理和操作能力，采用 ReAct (Reasoning + Acting) 架构。
 
-<p align="center">
-| <a href="https://arxiv.org/abs/2509.00531"><b>Paper</b></a> | <a href="https://huggingface.co/collections/IPADS-SAI/mobimind-68b2aad150ccafd9d9e10e4d"><b>Huggingface</b></a> | <a href="https://github.com/IPADS-SAI/MobiAgent/releases/tag/v1.0"><b>App</b></a> |
-</p> 
+## 🚀 一、环境与基本配置
 
-<p align="center">
- <strong>English</strong> | <a href="README_zh.md">中文</a>
-</p> 
+### 1. 设备连接（ADB over Wi-Fi）
+
+项目运行依赖于 ADB 连接到手机设备。
+
+| 步骤 | 命令 | 说明 |
+| :--- | :--- | :--- |
+| **主机/Windows** | \`usbipd list\` | 查看手机的 \`BUS ID\`。 |
+| **主机/Windows** | \`usbipd.exe attach --busid <BUS ID> --wsl\` | 将手机设备绑定到 WSL。 |
+| **WSL/Linux** | \`adb devices\` | 确认手机在 WSL 中连接正常。 |
+| **WSL/Linux** | \`adb tcpip 5555\` | 设置手机网络端口。 |
+| **服务器/CMD** | \`adb connect \$PHONE\_IP:5555\` | 从服务器连接到手机。 |
+
+### 2. 模型服务部署（vLLM）
+
+所有运行流程的基础是部署 Decider, Grounder, Planner 三个模型服务。请在**三个不同的命令行窗口**中运行以下命令，并保持后台响应。
+
+\`\`\`bash
+# 窗口 1: Decider 模型 (Port 8000)
+CUDA_VISIBLE_DEVICES=0 vllm serve ~/mobiAgent/models/decider \
+    --port 8000 \
+    --dtype float16 \
+    --max-model-len 32768 \
+    --gpu-memory-utilization 0.63 \
+    --enforce-eager
+
+# 窗口 2: Grounder 模型 (Port 8001)
+CUDA_VISIBLE_DEVICES=1 vllm serve ~/mobiAgent/models/grounder \
+    --port 8001 \
+    --dtype float16 \
+    --max-model-len 32768 \
+    --gpu-memory-utilization 0.63 \
+    --enforce-eager
+
+# 窗口 3: Planner 模型 (Port 8002) - 使用张量并行
+CUDA_VISIBLE_DEVICES=0,1 vllm serve ~/mobiAgent/models/planner \
+    --port 8002 \
+    --tensor-parallel-size 2 \
+    --max-model-len 10240 \
+    --dtype float16 \
+    --gpu-memory-utilization 0.35 \
+    --enforce-eager
+\`\`\`
+
+### 3. 停止模型服务
+
+\`\`\`bash
+pkill -f "vllm serve"
+\`\`\`
 
 ---
 
-## About
+## 💻 二、项目主流程运行脚本
 
-**MobiAgent** is a powerful and customizable mobile agent system including:
+### 1. MobiAgent 主程序运行（核心）
 
-* **An agent model family**: MobiMind
-* **An agent acceleration framework**: AgentRR
-* **An agent benchmark**: MobiFlow
+执行 \`task.json\` 中定义的任务。
 
-**System Architecture:**
+\`\`\`bash
+cd ~/mobiAgent/MobiAgent
+python -m runner.mobiagent.mobiagent \
+    --service_ip localhost \
+    --decider_port 8000 \
+    --grounder_port 8001 \
+    --planner_port 8002
+\`\`\`
 
-<div align="center">
-<p align="center">
-  <img src="assets/arch.png" width="100%"/>
-</p>
-</div>
+### 2. UI-TARS Demo 运行
 
-## News
+\`\`\`bash
+cd ~/mobiAgent/MobiAgent/runner/UI-TARS-agent
+python quick_start.py
+\`\`\`
 
-- `[2025.8.30]`🔥 We've open-sourced the MobiAgent!
+### 3. ⭐ 【手动编写】使用外部 API 替换 Decider 模型
 
-## Evaluation Results
+这个脚本允许你将 Decider 替换为外部 API 模型（如 GPT-4o-mini 或 Gemini-2.5-Flash）进行测试，以便评估通用模型的性能。
 
-<div align="center">
-<p align="center">
-  <img src="assets/result1.png" width="30%" style="margin-right: 15px;"/>
-  <img src="assets/result2.png" width="30%" style="margin-right: 15px;"/>
-  <img src="assets/result3.png" width="30%"/>
-</p>
-</div>
+> **文件路径:** \`runner/mobiagent/mobiagent_change_decider_api.py\`
 
-<div align="center">
-<p align="center">
-  <img src="assets/result_agentrr.png" width="60%"/>
-</p>
-</div>
+\`\`\`bash
+python runner/mobiagent/mobiagent_change_decider_api.py \
+    --service_ip localhost \
+    --grounder_port 8001 \
+    --planner_port 8002 \
+    --decider_api_type openai \
+    --decider_model "gpt-4o-mini" \
+    --decider_api_key "<YOUR_API_KEY>"
+\`\`\`
 
-## Demo
+---
 
-Mobile App Demo:
-<div align="center">
-  <video src="https://github.com/user-attachments/assets/3a6539ea-34a5-4073-93aa-18986ca065ff"/>
-</div>
+## 🛠️ 三、测试与评估脚本（Benchmark）
 
-AgentRR Demo (Left: first task; Right: subsequent task)
-<div align="center">
-  <video src="https://github.com/user-attachments/assets/ef5268a2-2e9c-489c-b8a7-828f00ec3ed1"/>
-</div>
+### 1. ⭐ 【手动编写】 Grounder 模型单独调试
 
-## Project Structure
+此脚本用于测试 Grounder 的目标识别能力，将 Decider 输出的自然语言描述（\`target\_element\`）转化为屏幕坐标。
 
-- `agent_rr/` - Agent Record & Replay framework
-- `collect/` - Data collection, annotation, processing and export tools
-- `runner/` - Agent executor that connects to phone via ADB, executes tasks, and records execution traces
-- `MobiFlow/` - Agent evaluation benchmark based on milestone DAG
-- `app/` - MobiAgent Android app
-- `deployment/` - Service deployment for MobiAgent mobile application
+> **文件路径:** \`runner/mobiagent/test_grounder\` (Python 模块)
 
-## Quick Start
+\`\`\`bash
+cd ~/mobiAgent/MobiAgent
+python -m runner.mobiagent.test_grounder \
+    --service_ip localhost \
+    --grounder_port 8001
+\`\`\`
 
-### Use with MobiAgent APP
+### 2. ⭐ 【手动编写】 批量任务执行脚本（Benchmark 运行）
 
-If you would like to try MobiAgent directly with our APP, please download it in [Download Link](https://github.com/IPADS-SAI/MobiAgent/releases/tag/v1.0) and enjoy yourself!
+此脚本用于批量运行 \`task\_list.json\` 中定义的所有任务，用于生成模型性能基准测试结果。
 
-### Use with Python Scripts
+> **文件路径:** \`runner/mobiagent/run_task_list.py\`
 
-If you would like to try MobiAgent with python scripts which leverage Android Debug Bridge (ADB) to control your phone, please follow these steps:
+\`\`\`bash
+cd ~/mobiAgent/MobiAgent/runner/mobiagent
+python run_task_list.py --model \$模型结果文件夹名称\$
+\`\`\`
 
-#### Environment Setup
+### 3. ⭐ 【手动编写】 结构化测试评估脚本（DAG 框架）
 
-Create virtual environment, e.g., using conda:
+该脚本用于基于 DAG 框架的结构化评估。
 
-```bash
-conda create -n MobiMind python=3.10
-conda activate MobiMind
-```
+> **文件路径:** \`MobiFlow/structural_test_runner.py\`
 
-Simplest environment setup (in case you want to run the agent runner alone, and do not want heavy dependencies like torch to be installed):
+#### A. 单独测试（少量任务）
 
-```bash
-# Install simplest dependencies
-pip install -r requirements_simple.txt
-```
+测试单个 trace 或某个 type 下的所有 trace。
 
-Full environment setup (in case you want to run the full pipeline): 
+\`\`\`bash
+# 测试单个 trace (例如 type3:1)
+cd /home/agent/mobiAgent/MobiAgent/MobiFlow
+python structural_test_runner.py task_configs/taobao.json type3:1 \
+    --data-base ../run_test_data/mobiagent/taobao
+    
+# 测试某个 type 下的所有 trace (例如 type3)
+python structural_test_runner.py task_configs/taobao.json type3 \
+    --data-base ../run_test_data/mobiagent/taobao
+\`\`\`
 
-```bash
-pip install -r requirements.txt
+#### B. 批量评估模式
 
-# Download OmniParser model weights
-for f in icon_detect/{train_args.yaml,model.pt,model.yaml} ; do huggingface-cli download microsoft/OmniParser-v2.0 "$f" --local-dir weights; done
+一次性运行所有 App 和所有 Type 的任务，生成 Benchmark 结果。
 
-# If you need GPU acceleration for OCR, install paddlepaddle-gpu according to your CUDA version
-# For details, refer to https://www.paddlepaddle.org.cn/install/quick, for example CUDA 11.8:
-python -m pip install paddlepaddle-gpu==3.1.0 -i https://www.paddlepaddle.org.cn/packages/stable/cu118/
+\`\`\`bash
+cd /home/agent/mobiAgent/MobiAgent/MobiFlow
+python structural_test_runner.py --batch-mode \
+    --timestamp \$时间\$ \
+    --model \$模型结果文件夹名称\$ \
+    --workers 2
+\`\`\`
 
-```
+---
 
-#### Mobile Device Setup
+## 📚 四、数据集构建脚本
 
-- Download and install [ADBKeyboard](https://github.com/senzhk/ADBKeyBoard/blob/master/ADBKeyboard.apk) on your Android device
-- Enable Developer Options on your Android device and allow USB debugging
-- Connect your phone to the computer using a USB cable
+### 1. 手动采集服务器
 
-#### Model Deployment
+启动数据收集服务器，用于人工采集原始截图和 \`action.json\`。
 
-After downloading the `decider`, `grounder`, and `planner` models, use vLLM to deploy model inference services:
+\`\`\`bash
+cd ~/mobiAgent/MobiAgent
+python -m collect.manual.server
+\`\`\`
 
-```bash
-vllm serve IPADS-SAI/MobiMind-Decider-7B --port <decider port>
-vllm serve IPADS-SAI/MobiMind-Grounder-3B --port <grounder port>
-vllm serve Qwen/Qwen3-4B-Instruct --port <planner port>
-```
+### 2. 自动采集脚本
 
+调用外部 API 自动生成轨迹数据。
 
-#### Launch Agent Runner
+\`\`\`bash
+# 示例：使用 Gemini API 进行自动采集
+python -m collect.auto.server \
+    --model "gemini-2.5-flash" \
+    --api_type gemini \
+    --max-steps 20
+\`\`\`
 
-Write the list of tasks that you would like to test in `runner/mobiagent/task.json`, then launch agent runner:
+### 3. 数据标注脚本（生成 React.json）
 
-```bash
-python -m runner.mobiagent.mobiagent --service_ip <Service IP> --decider_port <Decider Service Port> --grounder_port <Grounder Service Port> --planner_port <Planner Service Port>
-```
+利用视觉模型生成推理信息 (\`react.json\`)，用于 SFT 训练。
 
-Parameters:
+\`\`\`bash
+python -m collect.annotate_without_omniparser \
+    --data_path collect/manual/data \
+    --model qwen-vl-max \
+    --api_type compatible \
+    --api_key <YOUR_API_KEY>
+\`\`\`
 
-- `--service_ip`: Service IP (default: `localhost`)
-- `--decider_port`: Decider service port (default: `8000`)
-- `--grounder_port`: Grounder service port (default: `8001`)
-- `--planner_port`: Planner service port (default: `8002`)
+### 4. SFT 数据集构建脚本
 
-The runner automatically controls the device and invoke agent models to complete the pre-defined tasks.
+从 \`actions.json\` 和 \`react.json\` 构建 Decider 和 Grounder 的 SFT 训练集。
 
-## Detailed Sub-module Usage
-
-For detailed usage instructions, see the `README.md` files in each sub-module directory.
-
-## Citation
-
-If you find MobiAgent useful in your research, please feel free to cite our [paper](https://arxiv.org/abs/2509.00531):
-
-```
-@misc{zhang2025mobiagentsystematicframeworkcustomizable,
-  title={MobiAgent: A Systematic Framework for Customizable Mobile Agents}, 
-  author={Cheng Zhang and Erhu Feng and Xi Zhao and Yisheng Zhao and Wangbo Gong and Jiahui Sun and Dong Du and Zhichao Hua and Yubin Xia and Haibo Chen},
-  year={2025},
-  eprint={2509.00531},
-  archivePrefix={arXiv},
-  primaryClass={cs.MA},
-  url={https://arxiv.org/abs/2509.00531}, 
-}
-```
-
-## Acknowledgements
-We gratefully acknowledge the open-source projects like MobileAgent, UI-TARS, and Qwen-VL, etc. We also thank the National Innovation Institute of High-end Smart Appliances for their support of this project.
-
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=IPADS-SAI/MobiAgent&type=Date)](https://www.star-history.com/#IPADS-SAI/MobiAgent&Date)
+\`\`\`bash
+python -m collect.construct_sft \
+    --data_path ./data/淘宝/点击搜索栏 \
+    --ss_data_path ./ss_data_not_exist \
+    --out_path ./sft_output \
+    --factor 0.5 \
+    --train_ratio 0.9
+\`\`\`

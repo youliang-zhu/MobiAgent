@@ -340,7 +340,7 @@ if __name__ == "__main__":
     )
 
     from utils.load_md_prompt import load_prompt
-    sys_prompt = load_prompt("annotation_en_general.md")
+    sys_prompt = load_prompt("annotation_en_general_taobao.md")
 
     prompt = ChatPromptTemplate.from_messages(
         [

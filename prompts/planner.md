@@ -52,7 +52,7 @@
 {{
     "reasoning": "分析任务内容，说明为什么选择这个应用最合适，并说明所选模板理由。若不适用模板也需说明",
     "app_name": "选择的应用名称",
-    "package_name": "选择的应用包名",
+    "package_name": "选择的应用包名",template_list_text
     "template_name": "建议使用的模板文件名或 null",
     "task_description": "优化后的任务描述（保持语义完全一致，仅自然表达，不做模板字段扩展）"
 }}

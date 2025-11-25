@@ -1,10 +1,119 @@
-# 忽略特定文件
-screenshot.jpg
-list.error
-tasks.json
-
-# 忽略特定目录
+# Byte-compiled / optimized / DLL files
 __pycache__/
-data/
-data_log/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.mo
+*.pot
+dists/
+.pytest_cache/
+.hypothesis/
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+.pybuilder/
+target/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Editors
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.komodoproject
+
+# MyPy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Debugging
+.pdb
+.pdb++
+
+# rst2pdf
+*.pdf
+
+# For testing with coverage.py
+.coverage
+.coverage.*
+
+# For various build systems
+.ruff_cache/
+.black/
+.flake8
+.isort
+.pylintrc
+.mypy.ini
+.editorconfig
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Docker
+Dockerfile.backup
+docker-compose.yml.backup
+
+# Misc
+*.log
+*.seed
+*.pyc
+
+collect/auto/data_log/
+collect/manual/data/
+run_test_data/
+runner/mobiagent/data/
 weights/

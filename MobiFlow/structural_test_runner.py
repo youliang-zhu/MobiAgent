@@ -47,10 +47,19 @@ def _test_trace_worker(args):
     """
     config_file, data_base_dir, task_type, trace_id = args
     
-    # 禁用全局日志输出到终端（避免并行时输出混乱）
-    # 文件日志仍然正常保存（在 test_single_trace 中配置）
+    # 只禁用控制台输出，保留文件日志
+    # 移除所有 StreamHandler，保留 FileHandler
     import logging
-    logging.disable(logging.CRITICAL)
+    root_logger = logging.getLogger()
+    for handler in root_logger.handlers[:]:
+        if isinstance(handler, logging.StreamHandler) and not isinstance(handler, logging.FileHandler):
+            root_logger.removeHandler(handler)
+    
+    # 同时禁用 avdag 日志的控制台输出
+    avdag_logger = logging.getLogger('avdag')
+    for handler in avdag_logger.handlers[:]:
+        if isinstance(handler, logging.StreamHandler) and not isinstance(handler, logging.FileHandler):
+            avdag_logger.removeHandler(handler)
     
     # 创建 runner 并执行测试
     runner = StructuralTestRunner(config_file, data_base_dir)

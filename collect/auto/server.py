@@ -15,6 +15,22 @@ from openai import OpenAI
 import argparse
 
 from collect.auto.draw_bounds import process_folder
+from collect.auto.gemini_adapter import GeminiAdapter
+
+# API 工厂函数 - 添加新 API 只需在此字典中增加一行
+VISION_API_FACTORY = {
+    'local': lambda cfg: OpenAI(
+        api_key='0',
+        base_url=cfg['base_url']
+    ),
+    'openai': lambda cfg: OpenAI(
+        api_key=cfg['api_key'],
+        base_url=cfg['base_url'] if cfg['base_url'] else 'https://api.openai.com/v1'
+    ),
+    'gemini': lambda cfg: GeminiAdapter(
+        api_key=cfg['api_key']
+    ),
+}
 
 device = None  # 设备连接对象
 hierarchy = None  # 层次结构数据
@@ -24,9 +40,8 @@ operation_history = []  # 操作历史记录
 logger = None  # 日志记录器
 
 # 全局配置变量，将由命令行参数设置
-model = None
-api_key = None
-base_url = None
+model = ""
+api_type = "local"
 max_steps = 15
 client = None
 
@@ -110,10 +125,15 @@ decider_prompt_template = load_prompt("auto_decider.md")
 
 def get_app_package_name(task_description):
     """根据任务描述获取需要启动的app包名"""
-    app_selection_prompt = app_selection_prompt_template.format(task_description=task_description)
+    # 传入空的模板列表（自动标注不需要模板功能）。数据多样性更高，不受模板限制
+    # 传入固定模板，模仿mobiagent逻辑，用已有模板经验，生成更规范的训练数据
+    app_selection_prompt = app_selection_prompt_template.format(
+        task_description=task_description,
+        task_templates="(当前无可用模板)"
+    )
     while True:
         response_str = client.chat.completions.create(
-            model=model,
+            model="" if api_type == 'local' else model,  # 本地 vLLM 固定使用空字符串
             messages=[
                 {
                     "role": "user",
@@ -124,13 +144,21 @@ def get_app_package_name(task_description):
         
         logger.info(f"应用选择响应: \n{response_str}")
         
-        # 解析JSON响应
+        # 解析JSON响应 - 兼容 Markdown 包裹和纯 JSON 两种格式
         pattern = re.compile(r"```json\n(.*)\n```", re.DOTALL)
         match = pattern.search(response_str)
         if match:
-            break
+            json_str = match.group(1)
+        else:
+            # 没有 Markdown 包裹，直接使用原始字符串
+            json_str = response_str.strip()
         
-    response = json.loads(match.group(1))
+        try:
+            response = json.loads(json_str)
+            break  # 成功解析，跳出循环
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON 解析失败: {e}\n原始响应:\n{response_str}")
+            # 继续循环重试
     package_name = response.get("package_name")
     reasoning = response.get("reasoning")
         
@@ -182,6 +210,7 @@ def do_task(task_description, data_dir):
             history = history,
             layer_count = layer_count
         )
+        logger.info(f"Decider 提示词:\n{decider_prompt}")
         message_content = [
             {"type": "text", "text": decider_prompt}
         ]
@@ -212,7 +241,7 @@ def do_task(task_description, data_dir):
             })
 
         decider_response_str = client.chat.completions.create(
-            model= model,
+            model="" if api_type == 'local' else model,  # 本地 vLLM 固定使用空字符串
             messages=[
                 {
                     "role": "user",
@@ -222,16 +251,40 @@ def do_task(task_description, data_dir):
         ).choices[0].message.content
         
         logger.info(f"response: \n{decider_response_str}")
+        
+        # 解析JSON响应 - 兼容 Markdown 包裹和纯 JSON 两种格式
         pattern = re.compile(r"```json\n(.*)\n```", re.DOTALL)
         match = pattern.search(decider_response_str)
-        if not match:
-            logger.error("错误：未找到有效的JSON响应")
+        if match:
+            json_str = match.group(1)
+        else:
+            # 没有 Markdown 包裹，直接使用原始字符串
+            json_str = decider_response_str.strip()
+        
+        try:
+            decider_response = json.loads(json_str)
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON 解析失败: {e}\n原始响应:\n{decider_response_str}")
             continue
-        decider_response = json.loads(match.group(1))
 
         reasoning = decider_response.get("reasoning")
         action = decider_response.get("action")
         parameters = decider_response.get("parameters")
+        
+        # 处理模型返回中文 action 的情况（兼容性处理）
+        action_map = {
+            "点击操作": "click",
+            "点击": "click",
+            "滑动操作": "swipe",
+            "滑动": "swipe",
+            "输入操作": "input",
+            "输入": "input",
+            "完成": "done",
+            "完成任务": "done"
+        }
+        if action in action_map:
+            logger.warning(f"模型返回了中文 action '{action}'，自动转换为 '{action_map[action]}'")
+            action = action_map[action]
 
         if action == "done":
             logger.info("任务完成！")
@@ -444,9 +497,10 @@ def change_auto_data(data_log_path, index):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Auto collection of GUI data')
-    parser.add_argument('--model', type=str, required=True, help='name of the LLM model')
-    parser.add_argument('--api_key', type=str, required=True, help='API key for the LLM model')
-    parser.add_argument('--base_url', type=str, required=True, help='base URL for the LLM model API')
+    parser.add_argument('--model', type=str, default='', help='name of the LLM model (leave empty for local vLLM default)')
+    parser.add_argument('--api_key', type=str, default='', help='API key for the LLM model (not required for local API)')
+    parser.add_argument('--base_url', type=str, default='', help='base URL for the LLM model API (required for local/OpenAI-compatible APIs)')
+    parser.add_argument('--api_type', type=str, default='local', choices=list(VISION_API_FACTORY.keys()), help=f'API type (default: local). Available: {list(VISION_API_FACTORY.keys())}')
     parser.add_argument('--max_steps', type=int, default=15, help='maximum steps per task (default: 15)')
 
     args = parser.parse_args()
@@ -456,12 +510,23 @@ if __name__ == "__main__":
     api_key = args.api_key
     base_url = args.base_url
     max_steps = args.max_steps
+    api_type = args.api_type
     
-    # 初始化OpenAI客户端
-    client = OpenAI(
-        api_key=api_key,
-        base_url=base_url
-    )
+    # 使用工厂模式初始化客户端
+    if api_type not in VISION_API_FACTORY:
+        raise ValueError(f"不支持的 API 类型: {api_type}. 支持的类型: {list(VISION_API_FACTORY.keys())}")
+    
+    config = {
+        'api_key': api_key,
+        'base_url': base_url
+    }
+    client = VISION_API_FACTORY[api_type](config)
+    
+    # 日志输出
+    if api_type == 'local':
+        print(f"API 类型: {api_type}, 模型名称: (使用空字符串), base_url: {base_url}")
+    else:
+        print(f"API 类型: {api_type}, 模型: {model}" + (f", base_url: {base_url}" if base_url else ""))
     
     device = u2.connect()
     # 创建数据目录

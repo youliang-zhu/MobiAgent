@@ -5,6 +5,7 @@ from PIL import Image, ImageDraw
 import json
 import cv2
 import argparse
+import re
 from openai import OpenAI
 import io
 import datetime
@@ -55,8 +56,8 @@ def main():
     device.screenshot("tmp_screenshot.jpg")
     screenshot = get_base64_screenshot("tmp_screenshot.jpg")
 
-    reasoning = "我已经进入到了uber eat主界面，现在我需要点击“寿司”图标按钮进入到寿司相关的外卖菜单。"
-    target_element = "寿司图标按钮"
+    reasoning = "我已经进入到了淘宝主界面，现在我需要点击“搜索框”图标按钮。"
+    target_element = "上方的搜索框图标按钮"
 
     grounder_prompt_template_bbox = '''
     Based on the screenshot, user's intent and the description of the target UI element, provide the bounding box of the element using **absolute coordinates**.
@@ -92,8 +93,23 @@ def main():
     with open(os.path.join(save_dir, "prompt.txt"), "w", encoding="utf-8") as f:
         f.write("PROMPT:\n" + grounder_prompt + "\n\nRESPONSE:\n" + grounder_response_str)
 
+    # 处理 thinking 标签和 Markdown 格式（与 mobiagent.py 保持一致）
+    # 移除 thinking 标签和内容
+    grounder_response_str = re.sub(r'<think>.*?</think>', '', grounder_response_str, flags=re.DOTALL)
+    if '</think>' in grounder_response_str:
+        grounder_response_str = grounder_response_str.split('</think>', 1)[-1]
+    grounder_response_str = grounder_response_str.strip()
+    
+    # 提取 Markdown 代码块中的 JSON
+    pattern = re.compile(r"```json\n(.*?)\n```", re.DOTALL)
+    match = pattern.search(grounder_response_str)
+    if match:
+        json_str = match.group(1)
+    else:
+        json_str = grounder_response_str
+    
     # 解析bbox
-    grounder_response = json.loads(grounder_response_str)
+    grounder_response = json.loads(json_str)
     factor = 0.5
     bbox = [int(coord / factor) for coord in grounder_response["bbox"]]  # 除以 factor 还原
     x1, y1, x2, y2 = bbox

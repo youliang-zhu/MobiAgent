@@ -14,6 +14,11 @@ from PIL import Image, ImageDraw, ImageFont
 import textwrap
 import cv2
 import numpy as np
+import sys
+
+# 添加项目根目录到路径以便导入 GeminiAdapter
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
+from collect.auto.gemini_adapter import GeminiAdapter
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -110,23 +115,53 @@ class AndroidDevice(Device):
     def dump_hierarchy(self):
         return self.d.dump_hierarchy()
 
+# Decider API 工厂函数 - 添加新 API 只需在此字典中增加一行
+DECIDER_API_FACTORY = {
+    'local': lambda cfg: OpenAI(
+        api_key='0',
+        base_url=f"http://{cfg['service_ip']}:{cfg['port']}/v1"
+    ),
+    'gemini': lambda cfg: GeminiAdapter(
+        api_key=cfg['api_key']
+    ),
+    'openai': lambda cfg: OpenAI(
+        api_key=cfg['api_key'],
+        base_url='https://api.openai.com/v1'
+    ),
+}
+
 decider_client = None
 grounder_client = None
 planner_client = None
+decider_model = ""  # 全局变量存储 Decider 模型名称
 
-def init(service_ip, decider_port, grounder_port, planner_port):
-    global decider_client, grounder_client, planner_client, general_client, general_model, apps
-    decider_client = OpenAI(
-        api_key = "0",
-        base_url = f"http://{service_ip}:{decider_port}/v1",
-    )
+def init(service_ip, decider_port, grounder_port, planner_port,
+         decider_api_type='local', decider_model_name='', decider_api_key=''):
+    global decider_client, grounder_client, planner_client, decider_model
+    
+    # 存储模型名称供后续使用
+    decider_model = decider_model_name
+    
+    # Decider 初始化 - 使用工厂模式
+    if decider_api_type not in DECIDER_API_FACTORY:
+        raise ValueError(f"不支持的 Decider API 类型: {decider_api_type}. 支持的类型: {list(DECIDER_API_FACTORY.keys())}")
+    
+    config = {
+        'service_ip': service_ip,
+        'port': decider_port,
+        'api_key': decider_api_key
+    }
+    decider_client = DECIDER_API_FACTORY[decider_api_type](config)
+    logging.info(f"Decider: API类型={decider_api_type}, 模型={decider_model_name or '(默认)'}")
+    
+    # Grounder 和 Planner 保持不变
     grounder_client = OpenAI(
-        api_key = "0",
-        base_url = f"http://{service_ip}:{grounder_port}/v1",
+        api_key="0",
+        base_url=f"http://{service_ip}:{grounder_port}/v1",
     )
     planner_client = OpenAI(
-        api_key = "0",
-        base_url = f"http://{service_ip}:{planner_port}/v1",
+        api_key="0",
+        base_url=f"http://{service_ip}:{planner_port}/v1",
     )
 
 decider_prompt_template = """
@@ -254,6 +289,7 @@ def create_swipe_visualization(data_dir, image_index, direction):
 
 
 def task_in_app(app, old_task, task, device, data_dir, bbox_flag=True):
+    global decider_model
     history = []
     actions = []
     reacts = []
@@ -275,7 +311,7 @@ def task_in_app(app, old_task, task, device, data_dir, bbox_flag=True):
         )
         # logging.info(f"Decider prompt: \n{decider_prompt}")
         decider_response_str = decider_client.chat.completions.create(
-            model="",
+            model=decider_model,
             messages=[
                 {
                     "role": "user",
@@ -641,11 +677,22 @@ if __name__ == "__main__":
     parser.add_argument("--decider_port", type=int, default=8000, help="Port for decider service (default: 8000)")
     parser.add_argument("--grounder_port", type=int, default=8001, help="Port for grounder service (default: 8001)")
     parser.add_argument("--planner_port", type=int, default=8002, help="Port for planner service (default: 8002)")
+    parser.add_argument("--decider_api_type", type=str, default="local", choices=list(DECIDER_API_FACTORY.keys()), help=f"Decider API type (default: local). Available: {list(DECIDER_API_FACTORY.keys())}")
+    parser.add_argument("--decider_model", type=str, default="", help="Decider model name (for non-local APIs like Gemini)")
+    parser.add_argument("--decider_api_key", type=str, default="", help="Decider API key (for non-local APIs like Gemini)")
     
     args = parser.parse_args()
 
     # 使用命令行参数初始化
-    init(args.service_ip, args.decider_port, args.grounder_port, args.planner_port)
+    init(
+        args.service_ip, 
+        args.decider_port, 
+        args.grounder_port, 
+        args.planner_port,
+        decider_api_type=args.decider_api_type,
+        decider_model_name=args.decider_model,
+        decider_api_key=args.decider_api_key
+    )
 
     device = AndroidDevice()
     print(f"connect to device")

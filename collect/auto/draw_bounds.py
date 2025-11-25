@@ -1,8 +1,8 @@
 from PIL import Image, ImageDraw, ImageFont
 import os
 
-# from parse_xml import extract_all_bounds
-from utils.parse_omni import extract_all_bounds
+from utils.parse_xml import extract_all_bounds
+# from utils.parse_omni import extract_all_bounds  # 备用：视觉检测方案
 
 def check_text_overlap(text_rect1, text_rect2):
     """检查两个文本矩形是否重叠"""
@@ -18,7 +18,15 @@ def assign_bounds_to_layers(folder_path, screenshot_path, bounds_list):
     """使用贪心算法将bounds分配到不同的图层，避免文本重叠"""
     image = Image.open(screenshot_path)
     draw = ImageDraw.Draw(image)
-    font = ImageFont.truetype("arial.ttf", 40)
+    
+    # 使用项目根目录下的中文字体
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    font_path = os.path.join(project_root, "msyh.ttf")
+    try:
+        font = ImageFont.truetype(font_path, 40)
+    except OSError:
+        # 如果找不到，使用PIL默认字体
+        font = ImageFont.load_default()
     
     layers = []  # 每个元素是一个包含(index, bounds, text_rect)的列表
     
@@ -65,7 +73,15 @@ def draw_bounds_on_screenshot(screenshot_path, layer, output_path):
     try:
         image = Image.open(screenshot_path)
         draw = ImageDraw.Draw(image)
-        font = ImageFont.truetype("arial.ttf", 40)
+        
+        # 使用项目根目录下的中文字体
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        font_path = os.path.join(project_root, "msyh.ttf")
+        try:
+            font = ImageFont.truetype(font_path, 40)
+        except OSError:
+            # 如果找不到，使用PIL默认字体
+            font = ImageFont.load_default()
         
         # 用红色绘制所有bounds并标记索引
         for index, bounds, text_rect in layer:
@@ -93,17 +109,18 @@ def process_folder(folder_path, need_clickable=False):
     
     try:
         # 读取hierarchy.xml
-        # with open(hierarchy_path, 'r', encoding='utf-8') as f:
-        #     hierarchy_xml = f.read()
+        with open(hierarchy_path, 'r', encoding='utf-8') as f:
+            hierarchy_xml = f.read()
         
         # 提取所有bounds
-        # bounds_list = extract_all_bounds(hierarchy_xml, need_clickable)
+        bounds_list = extract_all_bounds(hierarchy_xml, need_clickable)
         
-        bounds_list = extract_all_bounds(screenshot_path)
+        # bounds_list = extract_all_bounds(screenshot_path)
         # print(f"在 {folder_path} 中找到 {len(bounds_list)} 个bounds")
         
         return assign_bounds_to_layers(folder_path, screenshot_path, bounds_list), bounds_list
+    
         
     except Exception as e:
         print(f"处理文件夹 {folder_path} 时出错: {str(e)}")
-        return 0
+        return 0, []  # 返回两个值保持接口一致
