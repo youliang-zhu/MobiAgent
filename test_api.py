@@ -56,29 +56,29 @@
 # print(response.choices[0].message.content)
 
 
-# from google import genai
-# import os
-
-# api_key = "AIzaSyB2nteoAPuuH2De5opj8iTzjMdzyb2yU-I"
-
-# client = genai.Client(api_key=api_key) 
-
-# response = client.models.generate_content(
-#     model="gemini-2.5-flash", contents="Explain how AI works in a few words")
-# print(response.text)
-
-from openai import OpenAI
+from google import genai
 import os
 
-api_key = "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"
+api_key = "AIzaSyB2nteoAPuuH2De5opj8iTzjMdzyb2yU-I"
 
-client = OpenAI(api_key=api_key)
+client = genai.Client(api_key=api_key) 
 
-response = client.chat.completions.create(
-    model="gpt-4.1-mini",
-    messages=[
-        {"role": "user", "content": "Explain how AI works in a few words"}
-    ]
-)
+response = client.models.generate_content(
+    model="gemini-2.5-pro", contents="Explain how AI works in a few words")
+print(response.text)
 
-print(response.choices[0].message.content)
+# from openai import OpenAI
+# import os
+
+# api_key = "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"
+
+# client = OpenAI(api_key=api_key)
+
+# response = client.chat.completions.create(
+#     model="gpt-4.1-mini",
+#     messages=[
+#         {"role": "user", "content": "Explain how AI works in a few words"}
+#     ]
+# )
+
+# print(response.choices[0].message.content)

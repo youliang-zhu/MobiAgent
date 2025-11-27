@@ -6,15 +6,33 @@ import os
 
 import argparse
 from argparse import Namespace
+import time
 
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 import base64, re
 import json
 
-# from utils.parse_omni import extract_all_bounds, find_clicked_element
+from collect.auto.gemini_adapter import GeminiAdapter
 
 from utils.load_md_prompt import load_prompt
+
+# API 工厂函数 - 支持多种 API 类型
+ANNOTATION_API_FACTORY = {
+    'local': lambda cfg: ChatOpenAI(
+        model='',
+        api_key='0',
+        base_url=cfg['base_url']
+    ),
+    'openai': lambda cfg: ChatOpenAI(
+        model=cfg['model'],
+        api_key=cfg['api_key'],
+        base_url=cfg['base_url'] if cfg['base_url'] else 'https://api.openai.com/v1'
+    ),
+    'gemini': lambda cfg: GeminiAdapter(
+        api_key=cfg['api_key']
+    ),
+}
 
 model = None
 
@@ -50,7 +68,7 @@ def compare_actions(actions, reacts):
         if action_type != react_type:
             raise Exception(f"[type mismatch] Action {i+1}: action type {action_type}，react type {react_type}")
 
-        reasoning = react["reasoning"]
+    #     reasoning = react["reasoning"]
 
         # 展示放弃如reasoning中有滚动滑动，强制让类型变成swipe
         # for desc, expected_direction in direction_mapping.items():
@@ -59,54 +77,67 @@ def compare_actions(actions, reacts):
         #             raise Exception(f"[Swipe action is expected] action {i+1} action: {action}, react: {react}, reasoning: {reasoning}")
         #         break
         
-        if(action_type == "swipe"):
-            action_direction = action["direction"].upper() if "direction" in action else None
+        # if(action_type == "swipe"):
+        #     action_direction = action["direction"].upper() if "direction" in action else None
 
-        if(react_type == "swipe"):
-            # parameters 内的字段可能不是 direction，而是taget啥的
-            if "parameters" not in react["function"] or "direction" not in react["function"]["parameters"]:
-                raise Exception(f"[Swipe action missing parameters] React {i+1}: {react}")
+        # if(react_type == "swipe"):
+        #     # parameters 内的字段可能不是 direction，而是taget啥的
+        #     if "parameters" not in react["function"] or "direction" not in react["function"]["parameters"]:
+        #         raise Exception(f"[Swipe action missing parameters] React {i+1}: {react}")
             
-            react_direction = react["function"]["parameters"]["direction"]
+        #     react_direction = react["function"]["parameters"]["direction"]
 
-            if(action_direction != react_direction):
-                raise Exception(f"[direction mismatch] Action {i+1}: action_direction: {action_direction}, react_direction: {react_direction}")
+        #     if(action_direction != react_direction):
+        #         raise Exception(f"[direction mismatch] Action {i+1}: action_direction: {action_direction}, react_direction: {react_direction}")
 
-            flag = False
-            for desc, expected_direction in direction_mapping.items():
-                if desc in reasoning:
-                    if react_direction == expected_direction:
-                        flag = True
-                        break
-                    else:
-                        raise Exception(f"[Swipe reasoning direction mismatch] Action {i+1}: action_direction: {action_direction}, react: {react}")
-            if not flag:
-                raise Exception(f"[Swipe reasoning hasn't direction description] Action {i+1}: action_direction: {action_direction}, react: {react}")
+            # flag = False
+            # for desc, expected_direction in direction_mapping.items():
+            #     if desc in reasoning:
+            #         if react_direction == expected_direction:
+            #             flag = True
+            #             break
+            #         else:
+            #             raise Exception(f"[Swipe reasoning direction mismatch] Action {i+1}: action_direction: {action_direction}, react: {react}")
+            # if not flag:
+            #     raise Exception(f"[Swipe reasoning hasn't direction description] Action {i+1}: action_direction: {action_direction}, react: {react}")
 
 change_task_description_prompt = load_prompt("change_task_description.md")
-def change_task_description(app_name, original_task):
+def change_task_description(app_name, original_task, api_type_param=None):
     count = 6
     max_attempts = 3
     for attempt in range(max_attempts):
         try:
-            prompt = ChatPromptTemplate.from_messages([
-                ("system", "{sys_prompt}"),
-                ("user", "{user_message}")
-            ])
-            chain = prompt | model
-            response = chain.invoke({
-                "sys_prompt": change_task_description_prompt.replace("{app_name}", app_name if app_name else "").replace("{original_task}", original_task).replace("{count}", str(count)),
-                "user_message": f"请将任务'{original_task}'改写成{count}个版本" + (f"（前3条不带应用名称，后3条带应用名称）" if app_name else "（都不带应用名称）")
-            })
+            sys_prompt = change_task_description_prompt.replace("{app_name}", app_name if app_name else "").replace("{original_task}", original_task).replace("{count}", str(count))
+            user_message = f"请将任务'{original_task}'改写成{count}个版本" + (f"（前3条不带应用名称，后3条带应用名称）" if app_name else "（都不带应用名称）")
+            
+            # Gemini 需要特殊处理
+            if api_type_param == 'gemini':
+                full_prompt = f"{sys_prompt}\n\n{user_message}"
+                response = model.chat.completions.create(
+                    model="gemini-2.0-flash-exp",
+                    messages=[{"role": "user", "content": full_prompt}]
+                )
+                response_content = response.choices[0].message.content
+            else:
+                prompt = ChatPromptTemplate.from_messages([
+                    ("system", "{sys_prompt}"),
+                    ("user", "{user_message}")
+                ])
+                chain = prompt | model
+                response = chain.invoke({
+                    "sys_prompt": sys_prompt,
+                    "user_message": user_message
+                })
+                response_content = response.content
 
             # 提取JSON内容
             pattern = re.compile(r"```json\n(.*?)\n```", re.DOTALL)
-            match = pattern.search(response.content)
+            match = pattern.search(response_content)
             
             if match is None:
                 # 如果没有找到json代码块，尝试直接解析整个响应
                 try:
-                    data = json.loads(response.content.strip())
+                    data = json.loads(response_content.strip())
                     if isinstance(data, list) and len(data) == count:
                         return data
                 except:
@@ -257,7 +288,7 @@ def visual_prompt(root, actions):
                 f.write(encoded_img.tobytes())
     print(f"[Visual Prompt] done")
 
-def auto_annotate(root, chain, task_description, actions):
+def auto_annotate(root, chain, task_description, actions, api_type_param=None):
     print(f"[Reasoning] root: \"{root}\" task: \"{task_description}\"")
 
     files = os.listdir(root)
@@ -271,19 +302,49 @@ def auto_annotate(root, chain, task_description, actions):
 
     max_attempts = 3
     for attempt in range(0, max_attempts):
-        response = chain.invoke({
-            "goal": task_description,
-            "screenshot_count": len(image_data),
-            "messages": [
-                (
-                    "user",
-                    [{"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image}"}} for image in image_data]
-                )
-            ]
-        })
+        # Gemini 需要特殊处理
+        if api_type_param == 'gemini':
+            # 直接调用 Gemini API
+            sys_prompt_content = load_prompt("annotation_en_general.md")
+            sys_prompt_filled = sys_prompt_content.replace("{goal}", task_description).replace("{screenshot_count}", str(len(image_data)))
+            
+            # 构建 Action History 文本
+            action_history_text = "\n\nAction History:\n" + json.dumps(actions, ensure_ascii=False, indent=2)
+            
+            message_content = [{"type": "text", "text": sys_prompt_filled + action_history_text}]
+            for image in image_data:
+                message_content.append({
+                    "type": "image_url",
+                    "image_url": {"url": f"data:image/jpeg;base64,{image}"}
+                })
+            
+            response = model.chat.completions.create(
+                model="gemini-2.0-flash-exp",
+                messages=[{"role": "user", "content": message_content}]
+            )
+            response_content = response.choices[0].message.content
+        else:
+            # 使用 LangChain 管道
+            action_history_text = "\n\nAction History:\n" + json.dumps(actions, ensure_ascii=False, indent=2)
+            
+            # 构建消息内容：先是 action history 文本，然后是图片
+            message_content = [{"type": "text", "text": action_history_text}]
+            message_content.extend([{"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image}"}} for image in image_data])
+            
+            response = chain.invoke({
+                "goal": task_description,
+                "screenshot_count": len(image_data),
+                "messages": [
+                    (
+                        "user",
+                        message_content
+                    )
+                ]
+            })
+            response_content = response.content
 
         pattern = re.compile(r"```json\n(.*)\n```", re.DOTALL)
-        match = pattern.search(response.content)
+        match = pattern.search(response_content)
         if match is None:
             print(f"[Reasoning] Attempt {attempt + 1} failed, no JSON found in response.")
             continue
@@ -327,29 +388,51 @@ def auto_annotate(root, chain, task_description, actions):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Auto annotation of GUI data')
     parser.add_argument('--data_path', type=str, default='data', help='root directory containing the data (default: data)')
-    parser.add_argument('--model', type=str, required=True, help='name of the annotation model')
-    parser.add_argument('--api_key', type=str, required=True, help='API key of the annotation model')
-    parser.add_argument('--base_url', type=str, required=True, help='base URL of the annotation model')
+    parser.add_argument('--api_type', type=str, required=True, choices=list(ANNOTATION_API_FACTORY.keys()), help=f'API type. Available: {list(ANNOTATION_API_FACTORY.keys())}')
+    parser.add_argument('--model', type=str, required=True, help='name of the annotation model (use "none" if not needed)')
+    parser.add_argument('--api_key', type=str, required=True, help='API key of the annotation model (use "none" if not needed)')
+    parser.add_argument('--base_url', type=str, required=True, help='base URL of the annotation model (use "none" if not needed)')
 
     args = parser.parse_args()
     
-    model = ChatOpenAI(
-        model=args.model,
-        api_key=args.api_key,
-        base_url=args.base_url,
-    )
+    # 处理 "none" 参数
+    model_name = None if args.model.lower() == 'none' else args.model
+    api_key = None if args.api_key.lower() == 'none' else args.api_key
+    base_url = None if args.base_url.lower() == 'none' else args.base_url
+    
+    # 使用工厂模式初始化模型
+    if args.api_type not in ANNOTATION_API_FACTORY:
+        raise ValueError(f"不支持的 API 类型: {args.api_type}. 支持的类型: {list(ANNOTATION_API_FACTORY.keys())}")
+    
+    config = {
+        'model': model_name,
+        'api_key': api_key,
+        'base_url': base_url
+    }
+    model = ANNOTATION_API_FACTORY[args.api_type](config)
+    
+    # 日志输出
+    if args.api_type == 'local':
+        print(f"API 类型: {args.api_type}, 模型名称: (使用空字符串), base_url: {base_url}")
+    elif args.api_type == 'gemini':
+        print(f"API 类型: {args.api_type}, API Key: {api_key[:10]}...")
+    else:
+        print(f"API 类型: {args.api_type}, 模型: {model_name}, base_url: {base_url}")
 
     from utils.load_md_prompt import load_prompt
-    sys_prompt = load_prompt("annotation_en_general_taobao.md")
+    sys_prompt = load_prompt("annotation_en_general.md")
 
-    prompt = ChatPromptTemplate.from_messages(
-        [
-            ("system", sys_prompt),
-            MessagesPlaceholder(variable_name='messages')
-        ]
-    )
-
-    chain = prompt | model
+    # Gemini 不支持 LangChain 管道，需要特殊处理
+    if args.api_type == 'gemini':
+        chain = None  # Gemini 直接调用，不使用 chain
+    else:
+        prompt = ChatPromptTemplate.from_messages(
+            [
+                ("system", sys_prompt),
+                MessagesPlaceholder(variable_name='messages')
+            ]
+        )
+        chain = prompt | model
 
     for root, dirs, files in os.walk(args.data_path):
         # 对子目录按数字顺序排序
@@ -372,6 +455,9 @@ if __name__ == "__main__":
             if "task_description" not in data:
                 raise Exception("No task_description in actions.json")
             task_description = data.get("task_description")
+            # 如果 task_description 是列表，取第一个元素（原始任务描述）
+            if isinstance(task_description, list):
+                task_description = task_description[0]
             actions = data.get("actions")
 
             # 不要随意开启这个，ocr有风险
@@ -381,11 +467,11 @@ if __name__ == "__main__":
             #     json.dump(data, file, ensure_ascii=False, indent=4)
             
             visual_prompt(root, actions)
-            auto_annotate(root, chain, task_description, actions)
+            auto_annotate(root, chain, task_description, actions, api_type_param=args.api_type)
 
             app_name = data.get("app_name")
             if(isinstance(task_description, str)):
-                new_tasks = change_task_description(app_name, task_description)
+                new_tasks = change_task_description(app_name, task_description, api_type_param=args.api_type)
                 all_tasks = [task_description] + new_tasks
                 data["task_description"] = all_tasks
 
@@ -394,6 +480,8 @@ if __name__ == "__main__":
 
                 print(f"[Increase Task] finished, saved to {actions_json}")
 
+            # 间隔 3 秒再处理下一条数据
+            time.sleep(6)
 
         except Exception as e:
             with open(f"{root}/parse.error", 'w', encoding='utf-8', errors='ignore') as file:

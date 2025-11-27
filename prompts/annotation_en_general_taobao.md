@@ -66,7 +66,7 @@ The functions that the ReAct agent can call are as follows:
                 "direction": {{
                     "type": "string",
                     "enum": ["UP", "DOWN", "LEFT", "RIGHT"],
-                    "description": "The direction of the user's swipe gesture. UP: swipe finger upward to swipe content up and reveal content below (press position is below release position). DOWN: swipe finger downward to swipe content down and reveal content above (press position is above release position). LEFT: swipe finger leftward to swipe content left (press position is to the right of release position). RIGHT: swipe finger rightward to swipe content right (press position is to the left of release position)."
+                    "description": "The direction of the user's swipe gesture, defined by the movement of the user's finger (the 'pull' direction). UP: Swipe the finger **upward** to scroll content **down** and **reveal content below** (the press position is below the release position). DOWN: Swipe the finger **downward** to scroll content **up** and **reveal content above** (the press position is above the release position). LEFT: Swipe the finger **leftward** to scroll content **right** and **reveal content to the right** (the press position is to the right of the release position). RIGHT: Swipe the finger **rightward** to scroll content **left** and **reveal content to the left** (the press position is to the left of the release position)."
                 }}
             }},
             "required": ["direction"]
