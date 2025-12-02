@@ -91,6 +91,11 @@ def resize_and_copy_image(part, img_path, data_path, out_path, factor, do_copy=F
     # Resize image并保存在同一目录下
     if do_copy:
         pil_img = Image.open(img_path)
+        
+        # 如果是 RGBA 模式，转换为 RGB（JPEG 不支持透明通道）
+        if pil_img.mode == 'RGBA':
+            pil_img = pil_img.convert('RGB')
+        
         width, height = pil_img.size
         new_width = int(width * factor)
         new_height = int(height * factor)
@@ -123,9 +128,14 @@ def construct_ss_data(single_step_data_path, out_path, factor=0.5, train_ratio=0
             if "tasks.json" not in files:
                 continue
 
+            print(f"Processing decider single-step data: {root}")
             react_path = os.path.join(root, "react.json")
             with open(react_path, "r", encoding="UTF-8") as f:
                 react_data = json.load(f)
+            
+            # 兼容处理：如果 react_data 是字典，转换为列表
+            if isinstance(react_data, dict):
+                react_data = [react_data]
 
             tasks_path = os.path.join(root, "tasks.json")
             with open(tasks_path, "r", encoding="UTF-8") as f:
@@ -168,9 +178,14 @@ def construct_ss_data(single_step_data_path, out_path, factor=0.5, train_ratio=0
             if "react.json" not in files:
                 continue
 
+            print(f"Processing grounder single-step data: {root}")
             react_path = os.path.join(root, "react.json")
             with open(react_path, "r", encoding="UTF-8") as f:
                 react_data = json.load(f)
+            
+            # 兼容处理：如果 react_data 是字典，转换为列表
+            if isinstance(react_data, dict):
+                react_data = [react_data]
 
             for i, react in enumerate(react_data, 1):
                 is_train = random.random() < train_ratio
@@ -364,6 +379,7 @@ def construct_ds(data_path, single_step_data_path, unexpected_img_path, out_path
         if "actions.json" not in files or "react.json" not in files or "parse.error" in files:
             continue
 
+        print(f"Processing trajectory data: {root}")
         actions_json = os.path.join(root, "actions.json")
         with open(actions_json, 'r', encoding='utf-8') as file:
             data = json.load(file)
