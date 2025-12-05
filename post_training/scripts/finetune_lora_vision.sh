@@ -15,6 +15,9 @@ unset NCCL_DEBUG_SUBSYS
 # Suppress repetitive warnings
 export PYTHONWARNINGS="ignore::UserWarning"
 
+# Increase NCCL timeout (default 600s -> 7200s)
+export NCCL_TIMEOUT=7200
+
 # Change to post_training directory
 cd "$(dirname "$0")/.."
 export PYTHONPATH=src:$PYTHONPATH
@@ -83,6 +86,7 @@ deepspeed src/train/train_sft.py \
     --report_to tensorboard \
     --lazy_preprocess True \
     --eval_strategy "epoch" \
-    --save_strategy "epoch" \
+    --save_strategy "steps" \
+    --save_steps 144 \
     --save_total_limit 3 \
-    --dataloader_num_workers 4
+    --dataloader_num_workers 2
