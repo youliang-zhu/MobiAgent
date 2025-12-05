@@ -114,7 +114,8 @@ docker-compose.yml.backup
 
 collect/auto/data_log/
 collect/manual/data/
-run_test_data/
+benchmark_test_data/
 runner/mobiagent/data/
 weights/
 tools_for_reproduction/generated_data/
+post_training/output/
