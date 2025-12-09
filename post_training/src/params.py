@@ -148,6 +148,7 @@ class TrainingArguments(HFTrainingArguments):
     vision_lr: Optional[float] = None
     merger_lr: Optional[float] = None
     lora_namespan_exclude: str = field(default=None, metadata={"help": "List of namespan to exclude for LoRA"})
+    lora_target_modules: str = field(default=None, metadata={"help": "List of target modules for LoRA, e.g. ['k_proj', 'v_proj']. If None, auto-detect all linear layers."})
     num_lora_modules: int = -1
     use_liger_kernel: bool = True
 

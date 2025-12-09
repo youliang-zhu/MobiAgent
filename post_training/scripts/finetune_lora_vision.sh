@@ -26,7 +26,7 @@ export PYTHONPATH=src:$PYTHONPATH
 # Batch Configuration
 # ============================================
 GLOBAL_BATCH_SIZE=64
-BATCH_PER_DEVICE=2
+BATCH_PER_DEVICE=4
 NUM_DEVICES=2
 GRAD_ACCUM_STEPS=$((GLOBAL_BATCH_SIZE / (BATCH_PER_DEVICE * NUM_DEVICES)))
 
@@ -52,6 +52,7 @@ deepspeed src/train/train_sft.py \
     --vision_lora False \
     --use_dora False \
     --lora_namespan_exclude "['lm_head', 'embed_tokens']" \
+    --lora_target_modules "['k_proj', 'v_proj', 'o_proj', 'gate_proj', 'up_proj', 'down_proj']" \
     --lora_rank 64 \
     --lora_alpha 64 \
     --lora_dropout 0.05 \
@@ -85,8 +86,13 @@ deepspeed src/train/train_sft.py \
     --gradient_checkpointing True \
     --report_to tensorboard \
     --lazy_preprocess True \
-    --eval_strategy "epoch" \
+    --eval_strategy "steps" \
+    --eval_steps 36 \
     --save_strategy "steps" \
     --save_steps 144 \
     --save_total_limit 3 \
-    --dataloader_num_workers 2
+    --load_best_model_at_end True \
+    --metric_for_best_model "eval_loss" \
+    --greater_is_better False \
+    --dataloader_num_workers 4 \
+    --dataloader_drop_last True

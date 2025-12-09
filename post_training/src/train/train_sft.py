@@ -147,14 +147,25 @@ def train():
 
     if training_args.lora_enable:
         lora_namespan_exclude = training_args.lora_namespan_exclude
-        peft_config = LoraConfig(
-            r=training_args.lora_rank,
-            lora_alpha=training_args.lora_alpha,
-            target_modules=find_target_linear_names(
+        
+        # 确定 target_modules
+        if training_args.lora_target_modules is not None:
+            # 使用用户指定的 target_modules
+            import ast
+            target_modules = ast.literal_eval(training_args.lora_target_modules)
+            rank0_print(f"Using specified LoRA target modules: {target_modules}")
+        else:
+            # 自动检测所有 linear 层
+            target_modules = find_target_linear_names(
                 model,
                 lora_namespan_exclude=lora_namespan_exclude,
                 num_lora_modules=training_args.num_lora_modules
-            ),
+            )
+        
+        peft_config = LoraConfig(
+            r=training_args.lora_rank,
+            lora_alpha=training_args.lora_alpha,
+            target_modules=target_modules,
             lora_dropout=training_args.lora_dropout,
             bias=training_args.lora_bias
         )
