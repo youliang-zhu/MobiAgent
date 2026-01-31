@@ -140,7 +140,7 @@ def deploy_model(config):
         "--port", "8000",
         "--dtype", "float16",
         "--max-model-len", "32768",
-        "--gpu-memory-utilization", "0.63",
+        "--gpu-memory-utilization", "0.9",
         "--enforce-eager",
         "--enable-lora",
         "--max-lora-rank", "64",

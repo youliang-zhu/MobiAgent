@@ -296,7 +296,67 @@ def task_in_app(app, old_task, task, device, data_dir, bbox_flag=True):
             decider_response_str = decider_response_str.split('</think>', 1)[-1]
         decider_response_str = decider_response_str.strip()
         
-        decider_response = json.loads(decider_response_str)
+        # 提取 Markdown 代码块中的 JSON（处理未微调模型的输出）
+        pattern = re.compile(r"```json\n(.*?)\n```", re.DOTALL)
+        match = pattern.search(decider_response_str)
+        if match:
+            decider_response_str = match.group(1).strip()
+        
+        # 尝试解析 JSON，如果失败则尝试修复常见格式问题
+        try:
+            decider_response = json.loads(decider_response_str)
+        except json.JSONDecodeError as e:
+            logging.warning(f"JSON解析失败，尝试修复: {e}")
+            # 尝试提取第一个完整的 JSON 对象（处理模型输出格式错误的情况）
+            # 使用正则表达式匹配完整的 JSON 对象
+            json_pattern = re.compile(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', re.DOTALL)
+            json_matches = json_pattern.findall(decider_response_str)
+            
+            parsed = False
+            for json_str in json_matches:
+                try:
+                    decider_response = json.loads(json_str)
+                    # 验证必要字段
+                    if "action" in decider_response:
+                        parsed = True
+                        logging.info(f"成功修复并解析JSON: {json_str}")
+                        break
+                except json.JSONDecodeError:
+                    continue
+            
+            if not parsed:
+                # 最后尝试：手动解析关键字段
+                logging.warning("尝试手动解析关键字段...")
+                action_match = re.search(r'"action"\s*:\s*"(\w+)"', decider_response_str)
+                reasoning_match = re.search(r'"reasoning"\s*:\s*"([^"]*(?:\\"[^"]*)*)"', decider_response_str)
+                
+                if action_match:
+                    action = action_match.group(1)
+                    reasoning = reasoning_match.group(1) if reasoning_match else ""
+                    
+                    # 解析 parameters
+                    params = {}
+                    if action == "click":
+                        target_match = re.search(r'"target_element"\s*:\s*"([^"]*)"', decider_response_str)
+                        if target_match:
+                            params["target_element"] = target_match.group(1)
+                    elif action == "input":
+                        text_match = re.search(r'"text"\s*:\s*"([^"]*)"', decider_response_str)
+                        if text_match:
+                            params["text"] = text_match.group(1)
+                    elif action == "swipe":
+                        dir_match = re.search(r'"direction"\s*:\s*"(\w+)"', decider_response_str)
+                        if dir_match:
+                            params["direction"] = dir_match.group(1)
+                    
+                    decider_response = {
+                        "reasoning": reasoning,
+                        "action": action,
+                        "parameters": params
+                    }
+                    logging.info(f"手动解析成功: {decider_response}")
+                else:
+                    raise ValueError(f"无法解析Decider响应: {decider_response_str}")
         converted_item = {
             "reasoning": decider_response["reasoning"],
             "function": {
@@ -340,7 +400,7 @@ def task_in_app(app, old_task, task, device, data_dir, bbox_flag=True):
             reasoning = decider_response["reasoning"]
             target_element = decider_response["parameters"]["target_element"]
             grounder_prompt = (grounder_prompt_template_bbox if bbox_flag else grounder_prompt_template_no_bbox).format(reasoning=reasoning, description=target_element)
-            logging.info(f"Grounder prompt: \n{grounder_prompt}")
+            # logging.info(f"Grounder prompt: \n{grounder_prompt}")
             
             grounder_response_str = grounder_client.chat.completions.create(
                 model="",
@@ -355,7 +415,7 @@ def task_in_app(app, old_task, task, device, data_dir, bbox_flag=True):
                 ],
                 temperature=0
             ).choices[0].message.content
-            logging.info(f"Grounder response: \n{grounder_response_str}")
+            # logging.info(f"Grounder response: \n{grounder_response_str}")
             
             # 移除 thinking 标签和内容（处理 thinking 模式的模型输出）
             # 方法1: 移除完整的 <think>...</think> 标签对及其内容

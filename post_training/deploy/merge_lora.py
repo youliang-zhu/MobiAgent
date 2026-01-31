@@ -9,7 +9,7 @@ import json
 import sys
 import os
 from pathlib import Path
-from transformers import Qwen2VLForConditionalGeneration, AutoProcessor
+from transformers import AutoModelForVision2Seq, AutoProcessor, AutoConfig
 from peft import PeftModel
 
 
@@ -41,9 +41,13 @@ def merge_lora_weights(
     """
     print(f"正在加载基础模型: {base_model_path}")
     
-    # 加载基础模型
+    # 自动检测模型类型并加载
+    config = AutoConfig.from_pretrained(base_model_path, trust_remote_code=True)
+    print(f"检测到模型类型: {config.model_type}")
+    
+    # 加载基础模型（使用 AutoModelForVision2Seq 自动适配 Qwen2-VL 和 Qwen2.5-VL）
     dtype = torch.float32 if save_full_precision else torch.bfloat16
-    model = Qwen2VLForConditionalGeneration.from_pretrained(
+    model = AutoModelForVision2Seq.from_pretrained(
         base_model_path,
         torch_dtype=dtype,
         device_map="cpu",  # 在 CPU 上操作以节省显存
@@ -85,11 +89,11 @@ def main():
     
     base_model_path = config["base_model_path"]
     lora_path = config["lora_source_path"]
-    models_dir = config["models_dir"]
+    models_save_dir = config["models_save_dir"]
     merged_save_name = config["merged_save_name"]
     
     # 目标路径
-    output_path = os.path.join(models_dir, merged_save_name)
+    output_path = os.path.join(models_save_dir, merged_save_name)
     
     # 检查源路径是否存在
     if not os.path.exists(base_model_path):
@@ -107,7 +111,7 @@ def main():
         sys.exit(1)
     
     # 确保目标目录存在
-    os.makedirs(models_dir, exist_ok=True)
+    os.makedirs(models_save_dir, exist_ok=True)
     
     print("="*50)
     print("LoRA 权重合并")

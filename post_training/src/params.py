@@ -264,7 +264,7 @@ class GRPOArguments(GRPOConfigTRL):
     min_p: Optional[float] = None
     repetition_penalty: float = 1.0
     max_completion_length: int = 256
-    max_prompt_length: int = 512
+    max_prompt_length: int = 8192  # Increased for VLM: images can require 4600+ tokens each
     use_liger_loss: bool = True
 
 

@@ -1,52 +1,94 @@
 import os
 import torch
-from peft import LoraConfig, get_peft_model
+from peft import LoraConfig
 import ast
+import pathlib
+import logging
 from transformers import (
-    AutoProcessor,
-    AutoConfig,
-    BitsAndBytesConfig,
-    HfArgumentParser,
+    AutoProcessor, 
+    BitsAndBytesConfig, 
+    HfArgumentParser, 
     Qwen2_5_VLForConditionalGeneration,
 )
-from src.trainer import QwenSFTTrainer
-from src.dataset import make_supervised_data_module
-from src.params import DataArguments, ModelArguments, TrainingArguments
-from train.train_utils import get_peft_state_maybe_zero_3, get_peft_state_non_lora_maybe_zero_3, safe_save_model_for_hf_trainer
-import pathlib
-from monkey_patch_forward import replace_qwen2_5_with_mixed_modality_forward
-from monkey_patch_vision import replace_qwen2_5_vision
+
+from src.trainer import QwenGRPOTrainer
+from src.dataset import make_grpo_data_module
+from src.params import DataArguments, ModelArguments, GRPOArguments
+from src.train.train_utils import get_peft_state_maybe_zero_3, get_peft_state_non_lora_maybe_zero_3, safe_save_model_for_hf_trainer
+from src.train.monkey_patch_forward import replace_qwen2_5_with_mixed_modality_forward
+from src.train.monkey_patch_vision import replace_qwen2_5_vision
+from src.utils import load_reward_funcs
+from src.train.grounder_client import set_grounder_url
+
+# 配置 logging 级别为 INFO，确保调试信息能够输出
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler()  # 输出到标准输出
+    ]
+)
 
 local_rank = None
-
 
 def rank0_print(*args):
     if local_rank == 0 or local_rank == '0' or local_rank is None:
         print(*args)
 
 
+def grpo_data_collator(features):
+    """
+    自定义 Data Collator for GRPO training.
+    仅将数据收集为列表，不做 Tensor 转换。
+    TRL 的 GRPOTrainer 期望 inputs 是 {key: [val1, val2, ...]} 的形式。
+    
+    Args:
+        features: List of samples from Dataset.__getitem__
+    
+    Returns:
+        Batch dict with lists as values
+    """
+    if not isinstance(features, list):
+        return features
+    
+    if not features:
+        return {}
+    
+    first = features[0]
+    batch = {}
+    
+    # 遍历每个键（prompt, images, gt_action）
+    for key in first.keys():
+        # 简单地将该 key 的所有值组成一个列表
+        batch[key] = [f[key] for f in features]
+    
+    return batch
+
 def find_target_linear_names(model, num_lora_modules=-1, lora_namespan_exclude=[], verbose=True):
+    """查找模型中所有可以应用 LoRA 的线性层，排除 Q 矩阵"""
     linear_cls = torch.nn.modules.Linear
     embedding_cls = torch.nn.modules.Embedding
     lora_module_names = []
+    
+    # 默认排除 q_proj（Q 矩阵）
+    default_exclude = ["q_proj"]
+    all_exclude = list(lora_namespan_exclude) + default_exclude
 
     for name, module in model.named_modules():
-        if any(ex_keyword in name for ex_keyword in lora_namespan_exclude):
+        if any(ex_keyword in name for ex_keyword in all_exclude):
             continue
         if isinstance(module, (linear_cls, embedding_cls)):
             lora_module_names.append(name)
-
+    
     if num_lora_modules > 0:
         lora_module_names = lora_module_names[-num_lora_modules:]
     if verbose:
         rank0_print(f"Found {len(lora_module_names)} lora modules: {lora_module_names}")
     return lora_module_names
 
-
 def set_requires_grad(parameters, requires_grad):
     for p in parameters:
         p.requires_grad = requires_grad
-
 
 def configure_vision_tower(model, training_args, compute_dtype, device):
     vision_tower = model.visual
@@ -54,27 +96,47 @@ def configure_vision_tower(model, training_args, compute_dtype, device):
 
     vision_model_params = model.visual.parameters()
     set_requires_grad(vision_model_params, not training_args.freeze_vision_tower)
-
+    
     # Handle merger specifically
     merger_params = model.visual.merger.parameters()
     set_requires_grad(merger_params, not training_args.freeze_merger)
 
+    if hasattr(model.visual, "deepstack_merger_list"):
+        deepstack_merger_list_params = model.visual.deepstack_merger_list.parameters()
+        set_requires_grad(deepstack_merger_list_params, not training_args.freeze_merger)
 
 def configure_llm(model, training_args):
     lm_head = model.lm_head.parameters()
     set_requires_grad(lm_head, not training_args.freeze_llm)
 
-    llm_params = model.model.parameters()
+    llm_params = model.language_model.parameters()
     set_requires_grad(llm_params, not training_args.freeze_llm)
+
+def unfreeze_topk_layers(model, k_llm: int = 0, k_vis: int = 0):
+    if k_llm and hasattr(model, "language_model") and hasattr(model.language_model, "layers"):
+        for layer in model.language_model.layers[-k_llm:]:
+            for p in layer.parameters():
+                p.requires_grad = True
+
+    if k_vis and hasattr(model, "visual") and hasattr(model.visual, "blocks"):
+        for blk in model.visual.blocks[-k_vis:]:
+            for p in blk.parameters():
+                p.requires_grad = True
+
 
 
 def train():
     global local_rank
 
     parser = HfArgumentParser(
-        (ModelArguments, DataArguments, TrainingArguments))
-
+        (ModelArguments, DataArguments, GRPOArguments))
+    
     model_args, data_args, training_args = parser.parse_args_into_dataclasses()
+
+    # 设置 Grounder 服务 URL（从环境变量读取）
+    grounder_url = os.environ.get("GROUNDER_URL", "http://localhost:8001/v1/chat/completions")
+    set_grounder_url(grounder_url)
+    print(f"Grounder URL set to: {grounder_url}")
 
     if training_args.lora_enable and not training_args.freeze_llm:
         raise ValueError("If `lora_enable` is True, `freeze_llm` must also be True.")
@@ -82,29 +144,30 @@ def train():
     if not training_args.lora_enable:
         assert not training_args.vision_lora, \
             "Error: training_args.lora_enable is not enabled, but training_args.vision_lora is enabled."
-
+        
     if training_args.vision_lora and not training_args.freeze_vision_tower:
         raise ValueError("If `vision_lora` is True, `freeze_vision_tower` must also be True.")
 
-    if training_args.lora_namespan_exclude is not None:
-        training_args.lora_namespan_exclude = ast.literal_eval(training_args.lora_namespan_exclude)
     else:
-        training_args.lora_namespan_exclude = []
+        if training_args.lora_namespan_exclude is not None:
+            training_args.lora_namespan_exclude = ast.literal_eval(training_args.lora_namespan_exclude)
+        else:
+            training_args.lora_namespan_exclude = []
 
-    if not training_args.vision_lora:
-        training_args.lora_namespan_exclude += ["visual"]
+        if not training_args.vision_lora:
+            training_args.lora_namespan_exclude += ["visual"]
 
     local_rank = training_args.local_rank
     compute_dtype = (torch.float16 if training_args.fp16 else (torch.bfloat16 if training_args.bf16 else torch.float32))
 
     bnb_model_from_pretrained_args = {}
-    if training_args.bits in [4, 8]:
+    if training_args.bits in [4,8]:
         bnb_model_from_pretrained_args.update(dict(
-            device_map={"": training_args.device},
-            quantization_config=BitsAndBytesConfig(
-                load_in_4bit=training_args.bits == 4,
-                load_in_8bit=training_args.bits == 8,
-                llm_int8_skip_modules=["visual", "lm_head"],
+            device_map={"":training_args.device},
+            quantization_config = BitsAndBytesConfig(
+                load_in_4bit=training_args.bits==4,
+                load_in_8bit=training_args.bits==8,
+                llm_int8_skip_modules=["visual"],
                 llm_int8_threshold=6.0,
                 llm_int8_has_fp16_weight=False,
                 bnb_4bit_compute_dtype=compute_dtype,
@@ -113,58 +176,48 @@ def train():
             )
         ))
 
-    # Load Qwen2.5-VL model
+    # 加载 Qwen2.5-VL 模型
     replace_qwen2_5_with_mixed_modality_forward()
     replace_qwen2_5_vision()
-    
     model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
         model_args.model_id,
         torch_dtype=compute_dtype,
-        attn_implementation="flash_attention_2" if not training_args.disable_flash_attn2 else "sdpa",
+        attn_implementation="flash_attention_2" if not training_args.disable_flash_attn2 else "sdpa", 
         **bnb_model_from_pretrained_args
     )
 
     model.config.use_cache = False
-    configure_llm(model, training_args)
-    configure_vision_tower(model, training_args, compute_dtype, training_args.device)
+    model_to_configure = model
+    configure_llm(model_to_configure, training_args)
+    configure_vision_tower(model_to_configure, training_args, compute_dtype, training_args.device)
+
+    unfreeze_topk_layers(
+        model_to_configure,
+        k_llm=getattr(training_args, "unfreeze_topk_llm", 0),
+        k_vis=getattr(training_args, "unfreeze_topk_vision", 0),
+    )
 
     if training_args.gradient_checkpointing:
         if training_args.vision_lora:
             training_args.gradient_checkpointing_kwargs = {"use_reentrant": False}
         else:
             training_args.gradient_checkpointing_kwargs = {"use_reentrant": True}
-
+        
         model.enable_input_require_grads()
 
-    if training_args.bits in [4, 8]:
-        model.config.torch_dtype = (torch.float32 if training_args.fp16 else (torch.bfloat16 if training_args.bf16 else torch.float32))
+    if training_args.bits in [4,8]:
+        model.config.dtype = (torch.float32 if training_args.fp16 else (torch.bfloat16 if training_args.bf16 else torch.float32))
         from peft import prepare_model_for_kbit_training
-        model = prepare_model_for_kbit_training(
-            model,
-            use_gradient_checkpointing=training_args.gradient_checkpointing,
-            gradient_checkpointing_kwargs=training_args.gradient_checkpointing_kwargs
-        )
+        model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=training_args.gradient_checkpointing, gradient_checkpointing_kwargs=training_args.gradient_checkpointing_kwargs)
+
+    peft_config = None
 
     if training_args.lora_enable:
         lora_namespan_exclude = training_args.lora_namespan_exclude
-        
-        # 确定 target_modules
-        if training_args.lora_target_modules is not None:
-            # 使用用户指定的 target_modules
-            target_modules = ast.literal_eval(training_args.lora_target_modules)
-            rank0_print(f"Using specified LoRA target modules: {target_modules}")
-        else:
-            # 自动检测所有 linear 层
-            target_modules = find_target_linear_names(
-                model,
-                lora_namespan_exclude=lora_namespan_exclude,
-                num_lora_modules=training_args.num_lora_modules
-            )
-        
         peft_config = LoraConfig(
             r=training_args.lora_rank,
             lora_alpha=training_args.lora_alpha,
-            target_modules=target_modules,
+            target_modules=find_target_linear_names(model, lora_namespan_exclude=lora_namespan_exclude, num_lora_modules=training_args.num_lora_modules),
             lora_dropout=training_args.lora_dropout,
             bias=training_args.lora_bias
         )
@@ -173,22 +226,9 @@ def train():
                 model.to(torch.bfloat16)
             if training_args.fp16:
                 model.to(torch.float16)
-        rank0_print("Adding LoRA to the model...")
-        model = get_peft_model(model, peft_config)
-
-        # PEFT model makes vision tower and merger frozen again
-        # Re-enable training for merger if needed
-        if not training_args.freeze_vision_tower:
-            for name, param in model.named_parameters():
-                if "visual" in name:
-                    param.requires_grad = True
-
-        if not training_args.freeze_merger:
-            for name, param in model.named_parameters():
-                if "merger" in name:
-                    param.requires_grad = True
 
     processor = AutoProcessor.from_pretrained(model_args.model_id)
+    processor.image_processor.do_resize = False
 
     if training_args.bits in [4, 8]:
         from peft.tuners.lora import LoraLayer
@@ -198,23 +238,27 @@ def train():
                     module = module.to(torch.bfloat16)
             if 'norm' in name:
                 module = module.to(torch.float32)
-
+            
             if 'lm_head' in name or 'embed_token' in name:
                 if hasattr(module, 'weight'):
                     if training_args.bf16 and module.weight.dtype == torch.float32:
                         module = module.to(torch.bfloat16)
 
-    data_module = make_supervised_data_module(
-        model_id=model_args.model_id,
-        processor=processor,
-        data_args=data_args
-    )
+    dataset_module = make_grpo_data_module(model_id=model_args.model_id,
+                                              processor=processor,
+                                              data_args=data_args)
 
-    trainer = QwenSFTTrainer(
+    reward_funcs = load_reward_funcs("src.train.reward_funcs")
+
+    trainer = QwenGRPOTrainer(
         model=model,
+        train_dataset=dataset_module["train_dataset"],
+        eval_dataset=dataset_module["eval_dataset"],
         processing_class=processor,
+        reward_funcs=reward_funcs,
         args=training_args,
-        **data_module
+        peft_config=peft_config,
+        data_collator=grpo_data_collator,  # 自定义 collator，避免默认 collator 处理复杂数据结构
     )
 
     if list(pathlib.Path(training_args.output_dir).glob("checkpoint-*")):
@@ -225,14 +269,14 @@ def train():
     trainer.save_state()
 
     model.config.use_cache = True
-
+    
     if training_args.lora_enable:
         state_dict = get_peft_state_maybe_zero_3(
             model.named_parameters(), training_args.lora_bias
         )
 
         non_lora_state_dict = get_peft_state_non_lora_maybe_zero_3(
-            model.named_parameters(), require_grad_only=True
+            model.named_parameters(), require_grad_only=False
         )
 
         if local_rank == 0 or local_rank == -1:
@@ -242,6 +286,7 @@ def train():
             torch.save(non_lora_state_dict, os.path.join(training_args.output_dir, "non_lora_state_dict.bin"))
     else:
         safe_save_model_for_hf_trainer(trainer, output_dir=training_args.output_dir)
+
 
 
 if __name__ == "__main__":
