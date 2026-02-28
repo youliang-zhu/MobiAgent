@@ -236,19 +236,16 @@ def generate_ss_data(data_path, livestream_path, output_path, gemini_api_key, mo
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="生成单步训练数据")
-    parser.add_argument("--data_path", type=str, 
-                       default=os.path.expanduser("~/mobiAgent/MobiAgent/collect/manual/data/淘宝"),
+    parser.add_argument("--data_path", type=str, required=True,
                        help="主数据路径")
-    parser.add_argument("--livestream_path", type=str,
-                       default=os.path.expanduser("~/mobiAgent/MobiAgent/collect/manual/data/淘宝/livestream"),
+    parser.add_argument("--livestream_path", type=str, required=True,
                        help="livestream 数据路径")
-    parser.add_argument("--output_path", type=str,
-                       default=os.path.expanduser("~/mobiAgent/MobiAgent/tools_for_reproduction/generated_data/ss_data/decider"),
+    parser.add_argument("--output_path", type=str, required=True,
                        help="输出路径")
     parser.add_argument("--gemini_api_key", type=str, required=True,
                        help="Gemini API Key")
-    parser.add_argument("--model_name", type=str, default="gemini-2.0-flash-exp",
-                       help="Gemini 模型名称 (default: gemini-2.0-flash-exp)")
+    parser.add_argument("--model_name", type=str, required=True,
+                       help="Gemini 模型名称 (如 gemini-2.0-flash-exp)")
     
     args = parser.parse_args()
     

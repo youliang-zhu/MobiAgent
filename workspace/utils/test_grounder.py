@@ -1,3 +1,22 @@
+"""
+workspace/utils/test_grounder.py - Grounder 服务单步调试工具
+
+功能：
+    连接真实 Android 设备，抓取当前屏幕，将截图和一个固定的查找目标 Prompt 发送给
+    Grounder 服务，返回元素的 bounding box 坐标并实际点击该位置。
+    全部过程的截图、prompt/response、可视化结果保存在 workspace/utils/test_records/<timestamp>/。
+
+使用先决条件：
+    1. Android 设备已由 adb 连接
+    2. Grounder 服务已在目标端口启动
+
+使用方法：
+    python -m workspace.utils.test_grounder --service_ip <IP> --grounder_port <PORT>
+
+示例：
+    python -m workspace.utils.test_grounder --service_ip localhost --grounder_port 8001
+"""
+
 import os
 import time
 import base64
@@ -11,7 +30,7 @@ import io
 import datetime
 import zoneinfo
 
-from .mobiagent import AndroidDevice
+from ...runner.mobiagent.mobiagent import AndroidDevice
 
 def get_base64_screenshot(img_path, factor=0.5):
     img = Image.open(img_path)

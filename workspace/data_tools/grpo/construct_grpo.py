@@ -346,18 +346,16 @@ def construct_grpo_dataset(data_path: str, out_path: str, factor: float = 0.5,
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="GRPO dataset construction")
-    parser.add_argument("--data_path", type=str, 
-                        default=os.path.expanduser("~/mobiAgent/MobiAgent/collect/manual/data/淘宝"),
+    parser.add_argument("--data_path", type=str, required=True,
                         help="Root path of trajectory data")
-    parser.add_argument("--out_path", type=str,
-                        default="/home/agent/mobiAgent/MobiAgent/workspace/data/training_data/grpo_data",
+    parser.add_argument("--out_path", type=str, required=True,
                         help="Output path for GRPO dataset")
-    parser.add_argument("--factor", type=float, default=0.5,
-                        help="Resize factor for images (default: 0.5)")
-    parser.add_argument("--train_ratio", type=float, default=0.9,
-                        help="Ratio of training data (default: 0.9)")
-    parser.add_argument("--total_samples", type=int, default=1500,
-                        help="Total number of samples to collect (default: 1500)")
+    parser.add_argument("--factor", type=float, required=True,
+                        help="Resize factor for images (e.g. 0.5)")
+    parser.add_argument("--train_ratio", type=float, required=True,
+                        help="Ratio of training data (e.g. 0.9)")
+    parser.add_argument("--total_samples", type=int, required=True,
+                        help="Total number of samples to collect (e.g. 1500)")
     
     args = parser.parse_args()
     

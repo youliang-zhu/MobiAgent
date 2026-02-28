@@ -128,10 +128,10 @@ def main():
     # 解析命令行参数
     parser = argparse.ArgumentParser(description="批量运行 task_list.json 中的所有任务")
     parser.add_argument("--save_raw_data_path", type=str, required=True, help="原始运行数据保存路径（如 workspace/data/raw_runs/mobiagent/20251106_162407）")
-    parser.add_argument("--service_ip", type=str, default="localhost", help="服务IP地址 (默认: localhost)")
-    parser.add_argument("--decider_port", type=int, default=8000, help="Decider服务端口 (默认: 8000)")
-    parser.add_argument("--grounder_port", type=int, default=8001, help="Grounder服务端口 (默认: 8001)")
-    parser.add_argument("--planner_port", type=int, default=8002, help="Planner服务端口 (默认: 8002)")
+    parser.add_argument("--service_ip", type=str, required=True, help="服务IP地址")
+    parser.add_argument("--decider_port", type=int, required=True, help="Decider服务端口")
+    parser.add_argument("--grounder_port", type=int, required=True, help="Grounder服务端口")
+    parser.add_argument("--planner_port", type=int, required=True, help="Planner服务端口")
     
     args = parser.parse_args()
     

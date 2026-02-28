@@ -537,29 +537,29 @@ if __name__ == "__main__":
     parser.add_argument(
         "--data_path",
         type=str,
-        default=str(PROJECT_ROOT / "collect" / "manual" / "data"),
+        required=True,
         help="root path of raw data",
     )
     parser.add_argument(
         "--ss_data_path",
         type=str,
-        default=str(PROJECT_ROOT / "workspace" / "data" / "training_data" / "ss_data"),
+        required=True,
         help="root path of single-step data",
     )
     parser.add_argument(
         "--unexpected_img_path",
         type=str,
-        default=str(PROJECT_ROOT / "workspace" / "data" / "training_data" / "unexpected_data"),
+        required=True,
         help="root path of unexpected image data",
     )
     parser.add_argument(
         "--out_path",
         type=str,
-        default=str(PROJECT_ROOT / "workspace" / "data" / "training_data" / "sft_data"),
+        required=True,
         help="output path of train dataset",
     )
-    parser.add_argument("--factor", type=float, default=0.5, help="resize factor for images (default: 0.5)")
-    parser.add_argument("--train_ratio", type=float, default=0.9, help="ratio of training data (default: 0.9)")
+    parser.add_argument("--factor", type=float, required=True, help="resize factor for images (e.g. 0.5)")
+    parser.add_argument("--train_ratio", type=float, required=True, help="ratio of training data (e.g. 0.9)")
     args = parser.parse_args()
     construct_ds(
         data_path=args.data_path,

@@ -215,10 +215,10 @@ if __name__ == "__main__":
     import argparse
     
     parser = argparse.ArgumentParser(description="Test BASE_MODEL generation capability")
-    parser.add_argument("--api_url", type=str, default="http://localhost:8000/v1/chat/completions",
-                        help="API endpoint URL (default: http://localhost:8000/v1/chat/completions)")
-    parser.add_argument("--data_path", type=str, default=None,
-                        help="Path to training data JSON file (optional)")
+    parser.add_argument("--api_url", type=str, required=True,
+                        help="API endpoint URL (e.g. http://localhost:8000/v1/chat/completions)")
+    parser.add_argument("--data_path", type=str, required=True,
+                        help="Path to training data JSON file")
     
     args = parser.parse_args()
     

@@ -21,7 +21,7 @@ PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..
 sys.path.insert(0, PROJECT_ROOT)
 
 try:
-    from workspace.shared.gemini_adapter import GeminiAdapter
+    from workspace.utils.gemini_adapter import GeminiAdapter
 except Exception:
     GeminiAdapter = None
 
@@ -684,13 +684,13 @@ def get_app_package_name(task_description):
 if __name__ == "__main__":
     # 解析命令行参数
     parser = argparse.ArgumentParser(description="MobiMind Agent")
-    parser.add_argument("--service_ip", type=str, default="localhost", help="Ip for the services (default: localhost)")
-    parser.add_argument("--decider_port", type=int, default=8000, help="Port for decider service (default: 8000)")
-    parser.add_argument("--grounder_port", type=int, default=8001, help="Port for grounder service (default: 8001)")
-    parser.add_argument("--planner_port", type=int, default=8002, help="Port for planner service (default: 8002)")
-    parser.add_argument("--decider_api_type", type=str, default="local", choices=list(DECIDER_API_FACTORY.keys()), help=f"Decider API type (default: local). Available: {list(DECIDER_API_FACTORY.keys())}")
-    parser.add_argument("--decider_model", type=str, default="", help="Decider model name (for non-local APIs like Gemini)")
-    parser.add_argument("--decider_api_key", type=str, default="", help="Decider API key (for non-local APIs like Gemini)")
+    parser.add_argument("--service_ip", type=str, required=True, help="Ip for the services")
+    parser.add_argument("--decider_port", type=int, required=True, help="Port for decider service")
+    parser.add_argument("--grounder_port", type=int, required=True, help="Port for grounder service")
+    parser.add_argument("--planner_port", type=int, required=True, help="Port for planner service")
+    parser.add_argument("--decider_api_type", type=str, required=True, choices=list(DECIDER_API_FACTORY.keys()), help=f"Decider API type. Available: {list(DECIDER_API_FACTORY.keys())}")
+    parser.add_argument("--decider_model", type=str, required=True, help="Decider model name (for non-local APIs like Gemini)")
+    parser.add_argument("--decider_api_key", type=str, required=True, help="Decider API key (for non-local APIs like Gemini)")
     
     args = parser.parse_args()
 

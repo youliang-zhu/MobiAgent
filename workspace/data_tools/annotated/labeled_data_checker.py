@@ -219,7 +219,7 @@ def check_data_integrity(data_dir="../collect/manual/data", clean_errors=False, 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Check data integrity and optionally clean error files')
-    parser.add_argument('--data-path', type=str, default='collect/manual/data', help='Data directory path (default: collect/manual/data)')
+    parser.add_argument('--data-path', type=str, required=True, help='Data directory path')
     parser.add_argument('--clean-errors', action='store_true', help='Delete parse.error files if found')
     parser.add_argument('--clean-react', type=str, help='Delete react.json files for specific task type (e.g., livestream, type1, type2)')
     

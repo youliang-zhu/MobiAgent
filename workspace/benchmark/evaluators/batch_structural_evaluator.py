@@ -611,8 +611,8 @@ def main():
                        help='待评估数据根目录 (批量模式必需，如 workspace/data/raw_runs/mobiagent/20251106_162407)')
     parser.add_argument('--eval-result-path', type=str,
                        help='评估结果输出根目录 (批量模式必需，如 workspace/data/benchmark_results/mobiagent/20251106_162407)')
-    parser.add_argument('--workers', type=int, default=2,
-                       help='并行 worker 数量 (默认: 2，设为 1 禁用并行)')
+    parser.add_argument('--workers', type=int, required=True,
+                       help='并行 worker 数量 (如 2，设为 1 禁用并行)')
     
     # 单个测试模式参数
     parser.add_argument('config_file', nargs='?', 
