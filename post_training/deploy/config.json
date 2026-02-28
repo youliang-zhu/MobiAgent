@@ -1,7 +1,0 @@
-{
-    "base_model_path": "/scratch/youliang/qwen2.5-vl-7b",
-    "lora_source_path": "/home/agent/mobiAgent/MobiAgent/post_training/output/mobimind_decider_lora_sft",
-    "models_save_dir": "/scratch/youliang/models",
-    "lora_save_name": "decider_lora_2",
-    "merged_save_name": "decider_lora_2_merged"
-}

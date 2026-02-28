@@ -119,3 +119,4 @@ runner/mobiagent/data/
 weights/
 tools_for_reproduction/generated_data/
 post_training/output/
+workspace/data/
