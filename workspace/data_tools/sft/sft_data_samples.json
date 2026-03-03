@@ -1,0 +1,137 @@
+{
+  "main_trajectory": {
+    "decider": [
+      {
+        "instruction": "<image>\nYou are a phone-use AI agent. Now your task is \"把128GB的摄影无人机放入购物车里。\".\nYour action history is:\n1. {\"reasoning\": \"为了找到128GB的摄影无人机，我需要先使用搜索功能。因此，我将点击屏幕顶部的搜索框来输入商品名称。\", \"action\": \"click\", \"parameters\": {\"target_element\": \"位于屏幕顶部的搜索框\"}}\n2. {\"reasoning\": \"我已经激活了搜索框，现在我需要输入要搜索的商品名称“128GB的摄影无人机”。\", \"action\": \"input\", \"parameters\": {\"text\": \"128GB的摄影无人机\"}}\n3. {\"reasoning\": \"我已经输入了“128GB的摄影无人机”，现在我需要点击搜索按钮来查看搜索结果。\", \"action\": \"click\", \"parameters\": {\"target_element\": \"搜索框右侧的“搜索”按钮\"}}\n4. {\"reasoning\": \"搜索结果已经显示出来，我将选择第一个看起来最相关的商品“DJI AIR 3S”，点击进入商品详情页。\", \"action\": \"click\", \"parameters\": {\"target_element\": \"商品列表中第一个商品，名称为“DJI AIR 3S”\"}}\n5. {\"reasoning\": \"进入了商品详情页，现在需要将这个无人机加入购物车，点击位于底部的“加入购物车”按钮。\", \"action\": \"click\", \"parameters\": {\"target_element\": \"位于屏幕底部的“加入购物车”按钮\"}}\n6. {\"reasoning\": \"点击加入购物车后，弹出了商品规格选择窗口。当前页面需要向上滑动才能看到所有规格选项。\", \"action\": \"swipe\", \"parameters\": {\"direction\": \"UP\"}}\n7. {\"reasoning\": \"滑动后，发现当前页面没有128GB的商品规格，需要关闭当前页面进行回退。弹窗的右上角有一个关闭按钮，点击关闭弹窗。\", \"action\": \"click\", \"parameters\": {\"target_element\": \"位于弹窗右上角的“X”关闭按钮\"}}\n8. {\"reasoning\": \"关闭了弹窗，现在需要点击左上角的返回箭头，返回到搜索结果页面。\", \"action\": \"click\", \"parameters\": {\"target_element\": \"位于页面左上角的返回箭头\"}}\n9. {\"reasoning\": \"返回到搜索结果页面后，第一个商品不行，需要选择第二个商品“DJI Mavic4 Pro 御”，点击进入商品详情页。\", \"action\": \"click\", \"parameters\": {\"target_element\": \"商品列表中第二个商品，名称为“DJI Mavic4 Pro 御”\"}}\n10. {\"reasoning\": \"进入了商品详情页，现在需要将这个无人机加入购物车，点击位于底部的“加入购物车”按钮。\", \"action\": \"click\", \"parameters\": {\"target_element\": \"位于屏幕底部的“加入购物车”按钮\"}}\n11. {\"reasoning\": \"点击加入购物车后，弹出了商品规格选择窗口。当前页面需要向上滑动才能看到所有规格选项。\", \"action\": \"swipe\", \"parameters\": {\"direction\": \"UP\"}}\nPlease provide the next action based on the screenshot and your action history. You should do careful reasoning before providing the action.\nYour action space includes:\n- Name: click, Parameters: target_element (a high-level description of the UI element to click).\n- Name: swipe, Parameters: direction (one of UP, DOWN, LEFT, RIGHT).\n- Name: input, Parameters: text (the text to input).\n- Name: wait, Parameters: (no parameters, will wait for 1 second).\n- Name: done, Parameters: (no parameters).\nYour output should be a JSON object with the following format:\n{\"reasoning\": \"Your reasoning here\", \"action\": \"The next action (one of click, input, swipe, wait, done)\", \"parameters\": {\"param1\": \"value1\", ...}}",
+        "output": "{\"reasoning\": \"继续向上滑动页面以查看更多商品规格。\", \"action\": \"swipe\", \"parameters\": {\"direction\": \"UP\"}}",
+        "images": [
+          "/home/agent/mobiAgent/MobiAgent/workspace/data/training_data/sft_data/main_淘宝_type4_7_12.jpg"
+        ],
+        "input": ""
+      },
+      {
+        "instruction": "<image>\nYou are a phone-use AI agent. Now your task is \"寻找价格划算的路由器\".\nYour action history is:\n1. {\"reasoning\": \"已经点击了搜索框，现在需要点击搜索框，使其激活以便输入要搜索的商品名称。\", \"action\": \"click\", \"parameters\": {\"target_element\": \"位于屏幕顶部的搜索框\"}}\n2. {\"reasoning\": \"已经激活搜索框，现在需要输入要搜索的商品名称“路由器”。\", \"action\": \"input\", \"parameters\": {\"text\": \"路由器\"}}\n3. {\"reasoning\": \"已经输入了要搜索的商品名称，现在点击搜索按钮开始搜索。\", \"action\": \"click\", \"parameters\": {\"target_element\": \"搜索框右侧的“搜索”按钮\"}}\n4. {\"reasoning\": \"搜索结果已经展示出来，为了找到价格最低的路由器，需要点击“综合”排序按钮，打开排序选项。\", \"action\": \"click\", \"parameters\": {\"target_element\": \"排序方式按钮，当前显示为“综合”\"}}\n5. {\"reasoning\": \"点击“综合”按钮后，会弹出一个排序方式的选项列表。为了找到价格最低的路由器，需要选择“价格从低到高”的排序方式。\", \"action\": \"click\", \"parameters\": {\"target_element\": \"排序方式列表中的“价格从低到高”选项\"}}\nPlease provide the next action based on the screenshot and your action history. You should do careful reasoning before providing the action.\nYour action space includes:\n- Name: click, Parameters: target_element (a high-level description of the UI element to click).\n- Name: swipe, Parameters: direction (one of UP, DOWN, LEFT, RIGHT).\n- Name: input, Parameters: text (the text to input).\n- Name: wait, Parameters: (no parameters, will wait for 1 second).\n- Name: done, Parameters: (no parameters).\nYour output should be a JSON object with the following format:\n{\"reasoning\": \"Your reasoning here\", \"action\": \"The next action (one of click, input, swipe, wait, done)\", \"parameters\": {\"param1\": \"value1\", ...}}",
+        "output": "{\"reasoning\": \"选择了“价格从低到高”的排序方式后，商品列表会按照价格从低到高重新排列。现在需要点击第一个商品，即价格最低的商品，查看其详情。\", \"action\": \"click\", \"parameters\": {\"target_element\": \"价格最低的商品\"}}",
+        "images": [
+          "/home/agent/mobiAgent/MobiAgent/workspace/data/training_data/sft_data/main_淘宝_type1_22_7.jpg"
+        ],
+        "input": ""
+      },
+      {
+        "instruction": "<image>\nYou are a phone-use AI agent. Now your task is \"将价格最便宜的懒人支撑手机架添加到购物车。\".\nYour action history is:\n1. {\"reasoning\": \"为了找到懒人支撑手机架，首先需要点击淘宝App的搜索框，以便输入商品名称。\", \"action\": \"click\", \"parameters\": {\"target_element\": \"位于屏幕顶部的搜索框\"}}\n2. {\"reasoning\": \"已经点击了搜索框，现在需要输入要搜索的商品名称“懒人支撑手机架”。\", \"action\": \"input\", \"parameters\": {\"text\": \"懒人支撑手机架\"}}\n3. {\"reasoning\": \"已经输入了要搜索的商品名称，现在点击搜索按钮开始搜索。\", \"action\": \"click\", \"parameters\": {\"target_element\": \"搜索\"}}\n4. {\"reasoning\": \"搜索结果已经展示出来，需要点击“综合”按钮，选择价格从低到高进行排序。\", \"action\": \"click\", \"parameters\": {\"target_element\": \"位于屏幕上方的“综合”按钮\"}}\n5. {\"reasoning\": \"点击“综合”按钮后，在弹出的选项中选择“价格从低到高”，以便按价格排序商品。\", \"action\": \"click\", \"parameters\": {\"target_element\": \"弹出的筛选菜单中，选择“价格从低到高”\"}}\n6. {\"reasoning\": \"已经按照价格从低到高排序，现在选择价格最低的商品，也就是第一个商品。点击该商品进入商品详情页。\", \"action\": \"click\", \"parameters\": {\"target_element\": \"第一个商品，位于屏幕左上角，是一个白色的手机支架\"}}\n7. {\"reasoning\": \"进入了商品详情页，现在需要点击左上角的返回箭头，返回到搜索结果页面。\", \"action\": \"click\", \"parameters\": {\"target_element\": \"位于左上角的返回箭头\"}}\n8. {\"reasoning\": \"用户希望能够通过滑动屏幕来找到其他的价格更低的手机支架。\", \"action\": \"swipe\", \"parameters\": {\"direction\": \"UP\"}}\n9. {\"reasoning\": \"滑动屏幕后，找到了另一款价格更低的懒人手机支架。点击该商品进入商品详情页面。\", \"action\": \"click\", \"parameters\": {\"target_element\": \"一款黄色支架，价格为0.16元\"}}\nPlease provide the next action based on the screenshot and your action history. You should do careful reasoning before providing the action.\nYour action space includes:\n- Name: click, Parameters: target_element (a high-level description of the UI element to click).\n- Name: swipe, Parameters: direction (one of UP, DOWN, LEFT, RIGHT).\n- Name: input, Parameters: text (the text to input).\n- Name: wait, Parameters: (no parameters, will wait for 1 second).\n- Name: done, Parameters: (no parameters).\nYour output should be a JSON object with the following format:\n{\"reasoning\": \"Your reasoning here\", \"action\": \"The next action (one of click, input, swipe, wait, done)\", \"parameters\": {\"param1\": \"value1\", ...}}",
+        "output": "{\"reasoning\": \"进入了商品详情页，现在需要将这个懒人手机支架加入购物车，点击位于屏幕底部的“加入购物车”按钮。\", \"action\": \"click\", \"parameters\": {\"target_element\": \"位于页面底部的“加入购物车”按钮\"}}",
+        "images": [
+          "/home/agent/mobiAgent/MobiAgent/workspace/data/training_data/sft_data/main_淘宝_type3_19_10.jpg"
+        ],
+        "input": ""
+      },
+      {
+        "instruction": "<image>\nYou are a phone-use AI agent. Now your task is \"把128GB的摄影无人机放入购物车里。\".\nYour action history is:\n1. {\"reasoning\": \"为了找到128GB的摄影无人机，我需要先使用搜索功能。因此，我将点击屏幕顶部的搜索框来输入商品名称。\", \"action\": \"click\", \"parameters\": {\"target_element\": \"位于屏幕顶部的搜索框\"}}\n2. {\"reasoning\": \"我已经激活了搜索框，现在我需要输入要搜索的商品名称“128GB的摄影无人机”。\", \"action\": \"input\", \"parameters\": {\"text\": \"128GB的摄影无人机\"}}\n3. {\"reasoning\": \"我已经输入了“128GB的摄影无人机”，现在我需要点击搜索按钮来查看搜索结果。\", \"action\": \"click\", \"parameters\": {\"target_element\": \"搜索框右侧的“搜索”按钮\"}}\n4. {\"reasoning\": \"搜索结果已经显示出来，我将选择第一个看起来最相关的商品“DJI AIR 3S”，点击进入商品详情页。\", \"action\": \"click\", \"parameters\": {\"target_element\": \"商品列表中第一个商品，名称为“DJI AIR 3S”\"}}\n5. {\"reasoning\": \"进入了商品详情页，现在需要将这个无人机加入购物车，点击位于底部的“加入购物车”按钮。\", \"action\": \"click\", \"parameters\": {\"target_element\": \"位于屏幕底部的“加入购物车”按钮\"}}\n6. {\"reasoning\": \"点击加入购物车后，弹出了商品规格选择窗口。当前页面需要向上滑动才能看到所有规格选项。\", \"action\": \"swipe\", \"parameters\": {\"direction\": \"UP\"}}\n7. {\"reasoning\": \"滑动后，发现当前页面没有128GB的商品规格，需要关闭当前页面进行回退。弹窗的右上角有一个关闭按钮，点击关闭弹窗。\", \"action\": \"click\", \"parameters\": {\"target_element\": \"位于弹窗右上角的“X”关闭按钮\"}}\n8. {\"reasoning\": \"关闭了弹窗，现在需要点击左上角的返回箭头，返回到搜索结果页面。\", \"action\": \"click\", \"parameters\": {\"target_element\": \"位于页面左上角的返回箭头\"}}\n9. {\"reasoning\": \"返回到搜索结果页面后，第一个商品不行，需要选择第二个商品“DJI Mavic4 Pro 御”，点击进入商品详情页。\", \"action\": \"click\", \"parameters\": {\"target_element\": \"商品列表中第二个商品，名称为“DJI Mavic4 Pro 御”\"}}\n10. {\"reasoning\": \"进入了商品详情页，现在需要将这个无人机加入购物车，点击位于底部的“加入购物车”按钮。\", \"action\": \"click\", \"parameters\": {\"target_element\": \"位于屏幕底部的“加入购物车”按钮\"}}\n11. {\"reasoning\": \"点击加入购物车后，弹出了商品规格选择窗口。当前页面需要向上滑动才能看到所有规格选项。\", \"action\": \"swipe\", \"parameters\": {\"direction\": \"UP\"}}\nPlease provide the next action based on the screenshot and your action history. You should do careful reasoning before providing the action.\nYour action space includes:\n- Name: click, Parameters: target_element (a high-level description of the UI element to click).\n- Name: swipe, Parameters: direction (one of UP, DOWN, LEFT, RIGHT).\n- Name: input, Parameters: text (the text to input).\n- Name: wait, Parameters: (no parameters, will wait for 1 second).\n- Name: done, Parameters: (no parameters).\nYour output should be a JSON object with the following format:\n{\"reasoning\": \"Your reasoning here\", \"action\": \"The next action (one of click, input, swipe, wait, done)\", \"parameters\": {\"param1\": \"value1\", ...}}",
+        "output": "{\"reasoning\": \"继续向上滑动页面以查看更多商品规格。\", \"action\": \"swipe\", \"parameters\": {\"direction\": \"UP\"}}",
+        "images": [
+          "/home/agent/mobiAgent/MobiAgent/workspace/data/training_data/sft_data/main_淘宝_type4_7_12.jpg"
+        ],
+        "input": ""
+      },
+      {
+        "instruction": "<image>\nYou are a phone-use AI agent. Now your task is \"用淘宝搜索健身用防滑跳绳，并添加到购物车。\".\nYour action history is:\n1. {\"reasoning\": \"我已经输入了“健身用防滑跳绳”，现在我需要点击搜索按钮来查看搜索结果。\", \"action\": \"click\", \"parameters\": {\"target_element\": \"搜索框右侧的“搜索”按钮\"}}\n2. {\"reasoning\": \"搜索结果已经显示出来，我将选择第一个看起来最相关的商品“特步跳绳减肥专用中考小学生健身男计数款”来查看详情。\", \"action\": \"click\", \"parameters\": {\"target_element\": \"商品列表中第一个商品，标题为“特步跳绳减肥专用中考小学生健身男计数款”\"}}\n3. {\"reasoning\": \"我现在正在商品详情页。为了完成任务，我需要将这件商品加入购物车。因此，我将点击屏幕底部的加号购物车按钮。\", \"action\": \"click\", \"parameters\": {\"target_element\": \"位于屏幕底部的橙色“加入购物车”图标\"}}\nPlease provide the next action based on the screenshot and your action history. You should do careful reasoning before providing the action.\nYour action space includes:\n- Name: click, Parameters: target_element (a high-level description of the UI element to click).\n- Name: swipe, Parameters: direction (one of UP, DOWN, LEFT, RIGHT).\n- Name: input, Parameters: text (the text to input).\n- Name: wait, Parameters: (no parameters, will wait for 1 second).\n- Name: done, Parameters: (no parameters).\nYour output should be a JSON object with the following format:\n{\"reasoning\": \"Your reasoning here\", \"action\": \"The next action (one of click, input, swipe, wait, done)\", \"parameters\": {\"param1\": \"value1\", ...}}",
+        "output": "{\"reasoning\": \"点击加号后，弹出了商品规格选择窗口。我需要点击“暗夜黑-升级款【四大模式/精准计数/不打结】-2.8米可调节”选项。\", \"action\": \"click\", \"parameters\": {\"target_element\": \"规格选择弹窗中的“暗夜黑-升级款【四大模式/精准计数/不打结】-2.8米可调节”选项\"}}",
+        "images": [
+          "/home/agent/mobiAgent/MobiAgent/workspace/data/training_data/sft_data/main_淘宝_type2_9_6.jpg"
+        ],
+        "input": ""
+      }
+    ],
+    "grounder": [
+      {
+        "instruction": "<image>\nBased on the screenshot, user's intent and the description of the target UI element, provide the coordinates of the element using **absolute coordinates**.\nUser's intent: 我已经输入了店铺名称“李宁旗舰店”，现在我需要点击搜索按钮来搜索该店铺。\nTarget element's description: 搜索框右侧的“搜索”按钮\nYour output should be a JSON object with the following format:\n{\"coordinates\": [x, y]}",
+        "output": "{\"coordinates\": [583, 112]}",
+        "images": [
+          "/home/agent/mobiAgent/MobiAgent/workspace/data/training_data/sft_data/main_淘宝_livestream_3_4.jpg"
+        ],
+        "input": ""
+      },
+      {
+        "instruction": "<image>\nBased on the screenshot, user's intent and the description of the target UI element, provide the bounding box of the element using **absolute coordinates**.\nUser's intent: 我已经输入了“运动鞋”，现在我需要点击搜索按钮来查看搜索结果。\nTarget element's description: 搜索框右侧的“搜索”按钮\nYour output should be a JSON object with the following format:\n{\"bbox\": [x1, y1, x2, y2]}",
+        "output": "{\"bbox\": [520, 162, 611, 209]}",
+        "images": [
+          "/home/agent/mobiAgent/MobiAgent/workspace/data/training_data/sft_data/main_淘宝_type1_12_3.jpg"
+        ],
+        "input": ""
+      },
+      {
+        "instruction": "<image>\nBased on the screenshot, user's intent and the description of the target UI element, provide the coordinates of the element using **absolute coordinates**.\nUser's intent: 用户已进入商品详情页，需要将此商品加入购物车，点击位于底部的“加入购物车”按钮。\nTarget element's description: 位于屏幕底部的橙色“加入购物车”按钮\nYour output should be a JSON object with the following format:\n{\"coordinates\": [x, y]}",
+        "output": "{\"coordinates\": [337, 1306]}",
+        "images": [
+          "/home/agent/mobiAgent/MobiAgent/workspace/data/training_data/sft_data/main_淘宝_type4_16_5.jpg"
+        ],
+        "input": ""
+      },
+      {
+        "instruction": "<image>\nBased on the screenshot, user's intent and the description of the target UI element, provide the bounding box of the element using **absolute coordinates**.\nUser's intent: 输入关键词后，点击键盘上的搜索按钮，开始搜索笔记本电脑相关的直播间。\nTarget element's description: 键盘上的“搜索”按钮\nYour output should be a JSON object with the following format:\n{\"bbox\": [x1, y1, x2, y2]}",
+        "output": "{\"bbox\": [554, 94, 607, 122]}",
+        "images": [
+          "/home/agent/mobiAgent/MobiAgent/workspace/data/training_data/sft_data/main_淘宝_livestream_13_4.jpg"
+        ],
+        "input": ""
+      },
+      {
+        "instruction": "<image>\nBased on the screenshot, user's intent and the description of the target UI element, provide the coordinates of the element using **absolute coordinates**.\nUser's intent: 已经输入了要搜索的商品名称，现在点击搜索按钮开始搜索。\nTarget element's description: 搜索框右侧的“搜索”按钮\nYour output should be a JSON object with the following format:\n{\"coordinates\": [x, y]}",
+        "output": "{\"coordinates\": [574, 188]}",
+        "images": [
+          "/home/agent/mobiAgent/MobiAgent/workspace/data/training_data/sft_data/main_淘宝_type4_11_3.jpg"
+        ],
+        "input": ""
+      }
+    ]
+  },
+  "single_step": {
+    "decider": [],
+    "grounder": []
+  },
+  "unexpected": {
+    "decider": [
+      {
+        "instruction": "<image>\nYou are a phone-use AI agent. Now your task is \"将评价最好的护颈枕加入购物车，在淘宝上操作。\".\nYour action history is:\n1. {\"reasoning\": \"为了在淘宝App中将评价最好的护颈枕加入购物车，首先需要在淘宝App的首页找到搜索框，点击它可以输入商品关键词。\", \"action\": \"click\", \"parameters\": {\"target_element\": \"位于屏幕顶部的搜索框\"}}\n2. {\"reasoning\": \"已经点击了搜索框，现在需要输入要搜索的商品名称“护颈枕”。\", \"action\": \"input\", \"parameters\": {\"text\": \"护颈枕\"}}\n3. {\"reasoning\": \"已经输入了要搜索的商品名称，现在点击搜索按钮开始搜索。\", \"action\": \"click\", \"parameters\": {\"target_element\": \"搜索框右侧的“搜索”按钮\"}}\n4. {\"reasoning\": \"搜索结果已经展示出来，为了筛选出评价最好的商品，需要点击“筛选”按钮打开筛选页面。\", \"action\": \"click\", \"parameters\": {\"target_element\": \"位于页面右上角的“筛选”按钮\"}}\n5. {\"reasoning\": \"打开筛选页面后，为了按照店铺评分进行筛选，需要点击“店铺评分”选项。\", \"action\": \"click\", \"parameters\": {\"target_element\": \"筛选页面左侧的“店铺评分”选项\"}}\n6. {\"reasoning\": \"为了选择评价最好的商品，需要选择“5分”选项，表示选择店铺评分最高的商品。\", \"action\": \"click\", \"parameters\": {\"target_element\": \"筛选页面中的“5分 满分”选项\"}}\n7. {\"reasoning\": \"已经选择了店铺评分的筛选条件，现在点击“确定”按钮，应用筛选条件。\", \"action\": \"click\", \"parameters\": {\"target_element\": \"筛选页面底部的橙色“确定”按钮\"}}\n8. {\"reasoning\": \"应用筛选条件后，需要从筛选结果中选择商品。这里选择第一个商品。\", \"action\": \"click\", \"parameters\": {\"target_element\": \"商品列表中第一个商品，展示为一个白色枕头\"}}\n9. {\"reasoning\": \"进入商品详情页面后，为了将商品加入购物车，需要点击“加入购物车”按钮。\", \"action\": \"click\", \"parameters\": {\"target_element\": \"位于页面底部的橙色“加入购物车”按钮\"}}\nPlease provide the next action based on the screenshot and your action history. You should do careful reasoning before providing the action.\nYour action space includes:\n- Name: click, Parameters: target_element (a high-level description of the UI element to click).\n- Name: swipe, Parameters: direction (one of UP, DOWN, LEFT, RIGHT).\n- Name: input, Parameters: text (the text to input).\n- Name: wait, Parameters: (no parameters, will wait for 1 second).\n- Name: done, Parameters: (no parameters).\nYour output should be a JSON object with the following format:\n{\"reasoning\": \"Your reasoning here\", \"action\": \"The next action (one of click, input, swipe, wait, done)\", \"parameters\": {\"param1\": \"value1\", ...}}",
+        "output": "{\"reasoning\": \"当前页面不合预期，需要用户介入，中止任务执行\", \"action\": \"done\", \"parameters\": {}}",
+        "images": [
+          "/home/agent/mobiAgent/MobiAgent/workspace/data/training_data/sft_data/unexpected_unexpected_022.jpg"
+        ],
+        "input": ""
+      },
+      {
+        "instruction": "<image>\nYou are a phone-use AI agent. Now your task is \"搜索双肩减负旅行背包，并将其添加到购物车。\".\nYour action history is:\n1. {\"reasoning\": \"为了找到双肩减负旅行背包，我需要先使用搜索功能。因此，我将点击屏幕顶部的搜索框来输入商品名称。\", \"action\": \"click\", \"parameters\": {\"target_element\": \"位于屏幕顶部的搜索框\"}}\n2. {\"reasoning\": \"我已经激活了搜索框，现在我需要输入要搜索的商品名称“双肩减负旅行背包”。\", \"action\": \"input\", \"parameters\": {\"text\": \"双肩减负旅行背包\"}}\nPlease provide the next action based on the screenshot and your action history. You should do careful reasoning before providing the action.\nYour action space includes:\n- Name: click, Parameters: target_element (a high-level description of the UI element to click).\n- Name: swipe, Parameters: direction (one of UP, DOWN, LEFT, RIGHT).\n- Name: input, Parameters: text (the text to input).\n- Name: wait, Parameters: (no parameters, will wait for 1 second).\n- Name: done, Parameters: (no parameters).\nYour output should be a JSON object with the following format:\n{\"reasoning\": \"Your reasoning here\", \"action\": \"The next action (one of click, input, swipe, wait, done)\", \"parameters\": {\"param1\": \"value1\", ...}}",
+        "output": "{\"reasoning\": \"当前打开了错误页面，需要用户介入，任务提前结束\", \"action\": \"done\", \"parameters\": {}}",
+        "images": [
+          "/home/agent/mobiAgent/MobiAgent/workspace/data/training_data/sft_data/unexpected_unexpected_062.jpg"
+        ],
+        "input": ""
+      },
+      {
+        "instruction": "<image>\nYou are a phone-use AI agent. Now your task is \"把销量最佳的无叶风扇放入购物车里\".\nYour action history is:\n1. {\"reasoning\": \"为了找到无叶风扇，我需要先使用搜索功能。因此，我将点击屏幕顶部的搜索框来输入商品名称。\", \"action\": \"click\", \"parameters\": {\"target_element\": \"位于屏幕顶部的搜索框\"}}\n2. {\"reasoning\": \"我已经激活了搜索框，现在我需要输入要搜索的商品名称“无叶风扇”。\", \"action\": \"input\", \"parameters\": {\"text\": \"无叶风扇\"}}\n3. {\"reasoning\": \"我已经输入了“无叶风扇”，现在我需要点击搜索按钮来查看搜索结果。\", \"action\": \"click\", \"parameters\": {\"target_element\": \"搜索框右侧的“搜索”按钮\"}}\nPlease provide the next action based on the screenshot and your action history. You should do careful reasoning before providing the action.\nYour action space includes:\n- Name: click, Parameters: target_element (a high-level description of the UI element to click).\n- Name: swipe, Parameters: direction (one of UP, DOWN, LEFT, RIGHT).\n- Name: input, Parameters: text (the text to input).\n- Name: wait, Parameters: (no parameters, will wait for 1 second).\n- Name: done, Parameters: (no parameters).\nYour output should be a JSON object with the following format:\n{\"reasoning\": \"Your reasoning here\", \"action\": \"The next action (one of click, input, swipe, wait, done)\", \"parameters\": {\"param1\": \"value1\", ...}}",
+        "output": "{\"reasoning\": \"当前打开了错误页面，任务无法继续执行，中止任务执行\", \"action\": \"done\", \"parameters\": {}}",
+        "images": [
+          "/home/agent/mobiAgent/MobiAgent/workspace/data/training_data/sft_data/unexpected_unexpected_035.jpg"
+        ],
+        "input": ""
+      },
+      {
+        "instruction": "<image>\nYou are a phone-use AI agent. Now your task is \"淘宝搜索将加厚瑜伽静音垫加入购物车\".\nYour action history is:\n1. {\"reasoning\": \"为了搜索加厚瑜伽静音垫，首先需要点击淘宝App的首页搜索框，点击它可以输入商品关键词。\", \"action\": \"click\", \"parameters\": {\"target_element\": \"位于屏幕顶部的搜索框\"}}\n2. {\"reasoning\": \"已经点击了搜索框，现在需要输入要搜索的商品名称“加厚瑜伽静音垫”。\", \"action\": \"input\", \"parameters\": {\"text\": \"加厚瑜伽静音垫\"}}\n3. {\"reasoning\": \"已经输入了要搜索的商品名称，现在点击搜索按钮开始搜索。\", \"action\": \"click\", \"parameters\": {\"target_element\": \"搜索框右侧的“搜索”按钮\"}}\n4. {\"reasoning\": \"搜索结果已经展示出来，这里选择商品列表中第一个商品，点击进入商品详情页。\", \"action\": \"click\", \"parameters\": {\"target_element\": \"商品列表中的第一个商品\"}}\nPlease provide the next action based on the screenshot and your action history. You should do careful reasoning before providing the action.\nYour action space includes:\n- Name: click, Parameters: target_element (a high-level description of the UI element to click).\n- Name: swipe, Parameters: direction (one of UP, DOWN, LEFT, RIGHT).\n- Name: input, Parameters: text (the text to input).\n- Name: wait, Parameters: (no parameters, will wait for 1 second).\n- Name: done, Parameters: (no parameters).\nYour output should be a JSON object with the following format:\n{\"reasoning\": \"Your reasoning here\", \"action\": \"The next action (one of click, input, swipe, wait, done)\", \"parameters\": {\"param1\": \"value1\", ...}}",
+        "output": "{\"reasoning\": \"当前页面不合预期，任务无法继续执行，中止任务执行\", \"action\": \"done\", \"parameters\": {}}",
+        "images": [
+          "/home/agent/mobiAgent/MobiAgent/workspace/data/training_data/sft_data/unexpected_unexpected_027.jpg"
+        ],
+        "input": ""
+      },
+      {
+        "instruction": "<image>\nYou are a phone-use AI agent. Now your task is \"打开淘宝，搜索销量最高的牛仔裤\".\nYour action history is:\n1. {\"reasoning\": \"为了搜索销量最高的牛仔裤，首先需要点击淘宝首页的搜索框，以便输入关键词。\", \"action\": \"click\", \"parameters\": {\"target_element\": \"位于屏幕顶部的搜索框\"}}\n2. {\"reasoning\": \"已经点击了搜索框，现在需要输入要搜索的商品名称“牛仔裤”。\", \"action\": \"input\", \"parameters\": {\"text\": \"牛仔裤\"}}\n3. {\"reasoning\": \"已经输入了要搜索的商品名称，现在点击搜索按钮开始搜索。\", \"action\": \"click\", \"parameters\": {\"target_element\": \"搜索框右侧的“搜索”按钮\"}}\n4. {\"reasoning\": \"搜索结果已经展示出来，为了找到销量最高的牛仔裤，需要点击位于页面顶部的“销量”按钮进行排序。\", \"action\": \"click\", \"parameters\": {\"target_element\": \"位于页面顶部的“销量”按钮\"}}\nPlease provide the next action based on the screenshot and your action history. You should do careful reasoning before providing the action.\nYour action space includes:\n- Name: click, Parameters: target_element (a high-level description of the UI element to click).\n- Name: swipe, Parameters: direction (one of UP, DOWN, LEFT, RIGHT).\n- Name: input, Parameters: text (the text to input).\n- Name: wait, Parameters: (no parameters, will wait for 1 second).\n- Name: done, Parameters: (no parameters).\nYour output should be a JSON object with the following format:\n{\"reasoning\": \"Your reasoning here\", \"action\": \"The next action (one of click, input, swipe, wait, done)\", \"parameters\": {\"param1\": \"value1\", ...}}",
+        "output": "{\"reasoning\": \"当前打开了错误页面，需要用户接管，中止任务执行\", \"action\": \"done\", \"parameters\": {}}",
+        "images": [
+          "/home/agent/mobiAgent/MobiAgent/workspace/data/training_data/sft_data/unexpected_unexpected_043.jpg"
+        ],
+        "input": ""
+      }
+    ],
+    "grounder": []
+  }
+}

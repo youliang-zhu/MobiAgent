@@ -4,6 +4,7 @@
 # MobiMind-Decider LoRA Fine-tuning Script
 # Model: Qwen2.5-VL-7B-Instruct
 # Hardware: 2 x A100 40GB
+# bash workspace/training/sft/scripts/finetune_lora.sh
 # ============================================
 
 MODEL_PATH="/scratch/youliang/qwen2.5-vl-7b"
@@ -41,7 +42,7 @@ echo "  Gradient Accumulation Steps: $GRAD_ACCUM_STEPS"
 # ============================================
 DATA_PATH="/home/agent/mobiAgent/MobiAgent/workspace/data/training_data/sft_data/mobimind_decider_train.json"
 EVAL_PATH="/home/agent/mobiAgent/MobiAgent/workspace/data/training_data/sft_data/mobimind_decider_val.json"
-OUTPUT_DIR="output/mobimind_decider_lora_sft"
+OUTPUT_DIR="output/learner_decider_lora_sft"
 
 # ============================================
 # Training

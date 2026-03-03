@@ -3,6 +3,10 @@
 SFT 数据集质量检查工具
 
 检查由 construct_sft.py 生成的训练数据集的完整性和质量
+
+python workspace/data_tools/sft/sft_data_check.py \
+  --sft_data_path workspace/data/training_data/sft_data \
+  --no_check_images
 """
 
 import os
