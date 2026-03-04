@@ -42,7 +42,11 @@ echo "  Gradient Accumulation Steps: $GRAD_ACCUM_STEPS"
 # ============================================
 DATA_PATH="/home/agent/mobiAgent/MobiAgent/workspace/data/training_data/sft_data/mobimind_decider_train.json"
 EVAL_PATH="/home/agent/mobiAgent/MobiAgent/workspace/data/training_data/sft_data/mobimind_decider_val.json"
-OUTPUT_DIR="output/learner_decider_lora_sft"
+OUTPUT_DIR="output/learner_2_decider_lora_sft"
+LOG_DIR="output/learner_2_decider_lora_sft/runs"
+TRAIN_LOG="$LOG_DIR/train_$(date +%Y%m%d_%H%M%S).log"
+mkdir -p "$LOG_DIR"
+echo "Train log: $TRAIN_LOG"
 
 # ============================================
 # Training
@@ -96,4 +100,6 @@ deepspeed src/train/train_sft.py \
     --metric_for_best_model "eval_loss" \
     --greater_is_better False \
     --dataloader_num_workers 4 \
-    --dataloader_drop_last True
+    --dataloader_drop_last True \
+    --logging_dir $LOG_DIR \
+    2>&1 | tee "$TRAIN_LOG"
