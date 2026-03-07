@@ -121,3 +121,5 @@ tools_for_reproduction/generated_data/
 post_training/output/
 workspace/data/
 workspace/training/sft/output/
+
+record2/

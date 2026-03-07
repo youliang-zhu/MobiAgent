@@ -1,5 +1,16 @@
 #!/usr/bin/env python3
-"""GRPO 数据集质量检查工具"""
+"""
+GRPO 数据集质量检查工具
+
+推荐检查指令（项目根目录执行）:
+python workspace/data_tools/grpo/grpo_data_check.py \
+    --grpo_data_path /home/agent/mobiAgent/MobiAgent/workspace/data/training_data/grpo_data
+
+若需要自动清理缺少 bounds 的 click 样本:
+python workspace/data_tools/grpo/grpo_data_check.py \
+    --grpo_data_path /home/agent/mobiAgent/MobiAgent/workspace/data/training_data/grpo_data \
+    --auto_fix
+"""
 
 import os
 import json

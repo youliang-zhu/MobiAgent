@@ -42,8 +42,8 @@ echo "  Gradient Accumulation Steps: $GRAD_ACCUM_STEPS"
 # ============================================
 DATA_PATH="/scratch/youliang/mobidata/sft_data/sft_data_taobao100/mobimind_decider_train.json"
 EVAL_PATH="/scratch/youliang/mobidata/sft_data/sft_data_taobao100/mobimind_decider_val.json"
-OUTPUT_DIR="output/learner_6_decider_lora_sft"
-LOG_DIR="output/learner_6_decider_lora_sft/runs"
+OUTPUT_DIR="output/learner_7_decider_lora_sft"
+LOG_DIR="output/learner_7_decider_lora_sft/runs"
 TRAIN_LOG="$LOG_DIR/train_$(date +%Y%m%d_%H%M%S).log"
 mkdir -p "$LOG_DIR"
 echo "Train log: $TRAIN_LOG"
@@ -52,13 +52,14 @@ echo "Train log: $TRAIN_LOG"
 # Training
 # ============================================
 
+# --lora_target_modules "['k_proj', 'v_proj', 'o_proj', 'gate_proj', 'up_proj', 'down_proj']" \
+
 deepspeed src/train/train_sft.py \
     --use_liger_kernel True \
     --lora_enable True \
     --vision_lora False \
     --use_dora False \
     --lora_namespan_exclude "['lm_head', 'embed_tokens']" \
-    --lora_target_modules "['k_proj', 'v_proj', 'o_proj', 'gate_proj', 'up_proj', 'down_proj']" \
     --lora_rank 64 \
     --lora_alpha 64 \
     --lora_dropout 0.05 \
