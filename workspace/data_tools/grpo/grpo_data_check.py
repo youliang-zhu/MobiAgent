@@ -116,6 +116,11 @@ class GRPODataChecker:
                     img_path = sample.get('images', ['unknown'])[0]
                     print(f"  ⚠️ 样本 {idx}: click 缺少 bounds, 图片: {img_path}")
                     should_remove = True
+                elif 'target_element' not in gt or not gt['target_element']:
+                    param_issues += 1
+                    img_path = sample.get('images', ['unknown'])[0]
+                    print(f"  ⚠️ 样本 {idx}: click 缺少 target_element, 图片: {img_path}")
+                    should_remove = True
             elif action_type == 'input' and 'text' not in gt:
                 param_issues += 1
             elif action_type == 'swipe' and 'direction' not in gt:

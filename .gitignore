@@ -122,4 +122,4 @@ post_training/output/
 workspace/data/
 workspace/training/sft/output/
 
-record2/
+record2.md

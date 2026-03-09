@@ -4,7 +4,7 @@ import os
 import base64
 import time
 import re
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple, Optional, Any
 
 from .types import Frame, NodeMatch, TaskSpec, VerifyResult, VerifierOptions, DecisionLog
 from .dag import DAG
@@ -500,8 +500,8 @@ def verify_task_folder(task_path: str, trace_folder: str, options: Optional[Veri
     return verify(frames, task, options)
 
 
-def make_llm_options(api_key: str, base_url: str, model: str = "google/gemini-2.5-flash", force_llm: bool = False, max_retries: int = 3, retry_delay: float = 1.0) -> VerifierOptions:
-    """构造带 LLM 回调的 VerifierOptions，使用 LangChain OpenAI 兼容接口。
+def make_llm_options(api_key: str, base_url: str, model: str = "gpt-5.4", force_llm: bool = False, max_retries: int = 3, retry_delay: float = 1.0) -> VerifierOptions:
+    """构造带 LLM 回调的 VerifierOptions，使用 OpenAI 官方 Responses API。
 
     注意：不在库内硬编码 key；由调用方传入。
     
@@ -514,23 +514,42 @@ def make_llm_options(api_key: str, base_url: str, model: str = "google/gemini-2.
         retry_delay: 重试间隔（秒）
     """
     try:
-        from langchain_openai import ChatOpenAI  # type: ignore
+        from openai import OpenAI  # type: ignore
     except Exception:  # pragma: no cover - 可选依赖
         def _llm(_ctx):
             return None
         return VerifierOptions(llm=_llm, force_llm_verification=force_llm)
 
-    # 创建 LangChain LLM 客户端
-    client = ChatOpenAI(
-        model=model,
+    # 创建 OpenAI 客户端（支持官方 API 与兼容接口）
+    client = OpenAI(
         api_key=api_key,
         base_url=base_url,
-        temperature=0.2,
-        max_tokens=3000,
-        timeout=40
+        timeout=40.0
     )
 
+    def _extract_response_text(resp: Any) -> str:
+        """从 OpenAI Responses API 返回中尽量提取文本。"""
+        direct_text = getattr(resp, "output_text", None)
+        if isinstance(direct_text, str) and direct_text.strip():
+            return direct_text.strip()
+
+        texts: List[str] = []
+        output_items = getattr(resp, "output", None) or []
+        for item in output_items:
+            contents = getattr(item, "content", None) or []
+            for c in contents:
+                ctype = getattr(c, "type", "")
+                if ctype in ("output_text", "text"):
+                    text = getattr(c, "text", None)
+                    if isinstance(text, str) and text.strip():
+                        texts.append(text.strip())
+
+        if texts:
+            return "\n".join(texts).strip()
+        return ""
+
     def _llm(ctx: Dict[str, any]) -> Optional[bool]:  # type: ignore
+        llm_logger = get_llm_logger()
         params = (ctx.get("params") or {})
         prompt = params.get("prompt") or "请判断该步骤是否达成预期。"
         frame = ctx.get("frame") or {}
@@ -673,19 +692,29 @@ def make_llm_options(api_key: str, base_url: str, model: str = "google/gemini-2.
                 # '{"result": "yes", "reason": "简要说明判断原因"} 或 {"result": "no", "reason": "简要说明失败原因"}'
         ###
 
-        # 构建消息内容
-        message_content = [{"type": "text", "text": text_content}]
-        message_content.extend(image_contents)
-        
-        # LangChain 消息格式
-        from langchain_core.messages import SystemMessage, HumanMessage
-        
-        messages = [
-            SystemMessage(content=sys),
-            HumanMessage(content=message_content)
+        # 构建 OpenAI Responses API 输入
+        user_content = [{"type": "input_text", "text": text_content}]
+        for image_item in image_contents:
+            image_url = (image_item.get("image_url") or {}).get("url")
+            if image_url:
+                user_content.append({
+                    "type": "input_image",
+                    "image_url": image_url
+                })
+
+        request_input = [
+            {
+                "role": "system",
+                "content": [
+                    {"type": "input_text", "text": sys}
+                ]
+            },
+            {
+                "role": "user",
+                "content": user_content
+            }
         ]
-        
-        llm_logger = get_llm_logger()
+
         # 记录完整的prompt信息（包括system message和user message）
         llm_logger.debug(f"=== LLM调用 - System Prompt ===\n{sys}")
         llm_logger.debug(f"=== LLM调用 - User Prompt (with {len(image_contents)} images) ===\n{text_content}")
@@ -705,11 +734,16 @@ def make_llm_options(api_key: str, base_url: str, model: str = "google/gemini-2.
         for attempt in range(max_retries):
             response_text = None
             try:
-                # 使用 LangChain 客户端调用
-                resp = client.invoke(messages)
+                # 使用 OpenAI Responses API
+                resp = client.responses.create(
+                    model=model,
+                    input=request_input,
+                    temperature=0.2,
+                    max_output_tokens=400
+                )
                 
                 # 检查响应是否有效
-                if not resp or not resp.content:
+                if not resp:
                     if attempt < max_retries - 1:
                         llm_logger.warning(f"received empty or invalid response from LLM (attempt {attempt + 1}/{max_retries}), retrying...")
                         import time
@@ -719,7 +753,7 @@ def make_llm_options(api_key: str, base_url: str, model: str = "google/gemini-2.
                         llm_logger.error(f"received empty or invalid response from LLM after {max_retries} attempts")
                         return None
                 
-                response_text = resp.content.strip()
+                response_text = _extract_response_text(resp)
                 
                 # 检查响应内容是否为空
                 if not response_text:
