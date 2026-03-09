@@ -1,11 +1,22 @@
+# Usage:
+# python workspace/data_tools/sft/construct_sft.py \
+#   --data_path collect/manual/data \
+#   --ss_data_path workspace/data/training_data/ss_data \
+#   --unexpected_img_path workspace/data/training_data/unexpected_data \
+#   --out_path workspace/data/training_data/sft_data \
+#   --factor 0.5 \
+#   --train_ratio 0.9 \
+#   --seed 42
+
 import os, json
 from dataclasses import dataclass, asdict
-from typing import List
+from typing import Dict, List, Optional
 import random
 import argparse
 from tqdm import tqdm
 from pathlib import Path
 import sys
+import hashlib
 
 import re
 from functools import reduce
@@ -88,6 +99,58 @@ def create_entries_for_one_step(num_repeat, instruction, output, image_path):
     )
     return [entry] * num_repeat
 
+
+def _stable_score(split_key: str, seed: int) -> float:
+    digest = hashlib.md5(f"{seed}:{split_key}".encode("utf-8")).digest()
+    return int.from_bytes(digest[:8], "big") / float(1 << 64)
+
+
+def _deterministic_is_train(split_key: str, train_ratio: float, seed: int) -> bool:
+    return _stable_score(split_key, seed) < train_ratio
+
+
+def _trajectory_category(root: str, data_path: str) -> str:
+    rel = os.path.relpath(root, data_path)
+    parts = rel.split(os.sep)
+    if len(parts) >= 2:
+        return parts[-2]
+    return parts[0]
+
+
+def _build_deterministic_split(trajectory_roots: List[str], data_path: str, train_ratio: float, seed: int) -> Dict[str, bool]:
+    split_map = {}
+    grouped = {}
+
+    for root in trajectory_roots:
+        rel_root = os.path.relpath(root, data_path)
+        split_map[root] = _deterministic_is_train(rel_root, train_ratio, seed)
+        category = _trajectory_category(root, data_path)
+        grouped.setdefault(category, []).append(root)
+
+    # Global deterministic split + category coverage guard:
+    # not class-stratified allocation; only ensure each category has train/val when possible.
+    for category, roots in grouped.items():
+        train_roots = [r for r in roots if split_map[r]]
+        val_roots = [r for r in roots if not split_map[r]]
+
+        if not val_roots and train_roots and len(roots) > 1:
+            move_to_val = max(
+                train_roots,
+                key=lambda r: _stable_score(os.path.relpath(r, data_path), seed),
+            )
+            split_map[move_to_val] = False
+            train_roots.remove(move_to_val)
+            val_roots.append(move_to_val)
+
+        if not train_roots and val_roots and len(roots) > 1:
+            move_to_train = min(
+                val_roots,
+                key=lambda r: _stable_score(os.path.relpath(r, data_path), seed),
+            )
+            split_map[move_to_train] = True
+
+    return split_map
+
 def resize_and_copy_image(part, img_path, data_path, out_path, factor, do_copy=False):
     relative_path = os.path.relpath(img_path, data_path)
     safe_filename = relative_path.replace(os.sep, "_").replace(":", "_")
@@ -115,7 +178,7 @@ def resize_and_copy_image(part, img_path, data_path, out_path, factor, do_copy=F
     out_abspath = os.path.abspath(out_relpath)
     return out_abspath
 
-def construct_ss_data(single_step_data_path, out_path, factor=0.5, train_ratio=0.9):
+def construct_ss_data(single_step_data_path, out_path, factor=0.5, train_ratio=0.9, seed: int = 42):
     if not os.path.exists(single_step_data_path):
         return [], [], [], []
 
@@ -128,9 +191,24 @@ def construct_ss_data(single_step_data_path, out_path, factor=0.5, train_ratio=0
     grounder_ss_entry_train = []
     grounder_ss_entry_val = []
 
+    # Backward compatibility:
+    # 1) legacy layout: ss_data/decider/*
+    # 2) current layout: ss_data/step_*/(react.json, tasks.json, 1.jpg)
     decider_ss_path = os.path.join(single_step_data_path, "decider")
     if os.path.exists(decider_ss_path):
-        for root, dirs, files in tqdm(os.walk(decider_ss_path), desc="constructing single step decider dataset"):
+        decider_roots = []
+        for root, dirs, files in os.walk(decider_ss_path):
+            dirs.sort()
+            if "react.json" in files and "tasks.json" in files:
+                decider_roots.append(root)
+    else:
+        decider_roots = [entry.path for entry in os.scandir(single_step_data_path) if entry.is_dir() and entry.name.startswith("step_")]
+        decider_roots = [root for root in decider_roots if os.path.exists(os.path.join(root, "react.json")) and os.path.exists(os.path.join(root, "tasks.json"))]
+    decider_roots.sort()
+
+    if decider_roots:
+        for root in tqdm(decider_roots, desc="constructing single step decider dataset"):
+            files = set(os.listdir(root))
             if len(files) == 0:
                 continue
             if "react.json" not in files:
@@ -152,7 +230,8 @@ def construct_ss_data(single_step_data_path, out_path, factor=0.5, train_ratio=0
                 tasks = json.load(f)
 
             for i, react in enumerate(react_data, 1):
-                is_train = random.random() < train_ratio
+                split_key = f"ss:decider:{os.path.relpath(root, single_step_data_path)}:{i}"
+                is_train = _deterministic_is_train(split_key, train_ratio, seed)
 
                 augment_rule = augment_data(react, rules)
 
@@ -182,7 +261,19 @@ def construct_ss_data(single_step_data_path, out_path, factor=0.5, train_ratio=0
 
     grounder_ss_path = os.path.join(single_step_data_path, "grounder")
     if os.path.exists(grounder_ss_path):
-        for root, dirs, files in tqdm(os.walk(grounder_ss_path), desc="constructing single step grounder dataset"):
+        grounder_roots = []
+        for root, dirs, files in os.walk(grounder_ss_path):
+            dirs.sort()
+            if "react.json" in files:
+                grounder_roots.append(root)
+    else:
+        grounder_roots = [entry.path for entry in os.scandir(single_step_data_path) if entry.is_dir() and entry.name.startswith("step_")]
+        grounder_roots = [root for root in grounder_roots if os.path.exists(os.path.join(root, "react.json"))]
+    grounder_roots.sort()
+
+    if grounder_roots:
+        for root in tqdm(grounder_roots, desc="constructing single step grounder dataset"):
+            files = set(os.listdir(root))
             if len(files) == 0:
                 continue
             if "react.json" not in files:
@@ -198,7 +289,8 @@ def construct_ss_data(single_step_data_path, out_path, factor=0.5, train_ratio=0
                 react_data = [react_data]
 
             for i, react in enumerate(react_data, 1):
-                is_train = random.random() < train_ratio
+                split_key = f"ss:grounder:{os.path.relpath(root, single_step_data_path)}:{i}"
+                is_train = _deterministic_is_train(split_key, train_ratio, seed)
 
                 augment_rule = augment_data(react, rules)
 
@@ -211,6 +303,8 @@ def construct_ss_data(single_step_data_path, out_path, factor=0.5, train_ratio=0
 
                 # grounder训练集
                 if action == "click":
+                    if "bbox" not in react:
+                        continue
                     bbox = react["bbox"]
                     bbox = [int(x * factor) for x in bbox]
                     aug_num_repeat = augment_num_repeat("grounder", augment_rule, is_train)
@@ -352,7 +446,12 @@ def create_decider_entries_for_one_task(task, react_data, root, data_path, out_p
     return normal_entries, no_history_entries, terminate_entries
 
 
-def construct_ds(data_path, single_step_data_path, unexpected_img_path, out_path, factor=0.5, train_ratio=0.9):
+def construct_ds(data_path, single_step_data_path, unexpected_img_path, out_path, factor=0.5, train_ratio=0.9, seed: Optional[int] = None):
+    if seed is None:
+        seed = 42
+    random.seed(seed)
+    print(f"Using random seed: {seed}")
+
     os.makedirs(out_path, exist_ok=True)
     
     # 训练集
@@ -374,6 +473,7 @@ def construct_ds(data_path, single_step_data_path, unexpected_img_path, out_path
     if os.path.exists(unexpected_img_path):
         unexpected_img_dir = os.path.abspath(unexpected_img_path)
         unexpected_img_paths = os.listdir(unexpected_img_dir)
+        unexpected_img_paths.sort()
         unexpected_img_paths = [os.path.join(unexpected_img_dir, img) for img in unexpected_img_paths]
 
         unexpected_img_safe_abspaths = []
@@ -383,7 +483,9 @@ def construct_ds(data_path, single_step_data_path, unexpected_img_path, out_path
     else:
         unexpected_img_safe_abspaths = []
 
+    trajectory_infos = []
     for root, dirs, files in tqdm(os.walk(data_path), desc="constructing dataset"):
+        dirs.sort()
         if len(files) == 0:
             continue
         if "actions.json" not in files or "react.json" not in files or "parse.error" in files:
@@ -431,7 +533,38 @@ def construct_ds(data_path, single_step_data_path, unexpected_img_path, out_path
         if len(task_description) > 4:
             tasks += random.sample(task_description[1:-3], 1)
 
-        is_train = random.random() < train_ratio
+        trajectory_infos.append(
+            {
+                "root": root,
+                "actions": actions,
+                "react_data": react_data,
+                "tasks": tasks,
+            }
+        )
+
+    trajectory_roots = [info["root"] for info in trajectory_infos]
+    split_map = _build_deterministic_split(trajectory_roots, data_path, train_ratio, seed)
+
+    category_stats = {}
+    for root in trajectory_roots:
+        category = _trajectory_category(root, data_path)
+        if category not in category_stats:
+            category_stats[category] = {"train": 0, "val": 0}
+        if split_map[root]:
+            category_stats[category]["train"] += 1
+        else:
+            category_stats[category]["val"] += 1
+    print("Deterministic split summary by category:")
+    for category in sorted(category_stats):
+        c = category_stats[category]
+        print(f"  {category}: train={c['train']}, val={c['val']}")
+
+    for info in trajectory_infos:
+        root = info["root"]
+        actions = info["actions"]
+        react_data = info["react_data"]
+        tasks = info["tasks"]
+        is_train = split_map[root]
         for i, task in enumerate(tasks):
             normal_entries, no_history_entries, terminate_entries = create_decider_entries_for_one_task(
                 task, react_data, root, data_path, out_path, factor, rules, unexpected_img_safe_abspaths, is_train, do_copy=(i == 0)
@@ -455,7 +588,9 @@ def construct_ds(data_path, single_step_data_path, unexpected_img_path, out_path
         else:
             grounder_entries_val.extend(grounder_entries)
 
-    decider_ss_entry_train, decider_ss_entry_val, grounder_ss_entry_train, grounder_ss_entry_val = construct_ss_data(single_step_data_path, out_path, factor, train_ratio)
+    decider_ss_entry_train, decider_ss_entry_val, grounder_ss_entry_train, grounder_ss_entry_val = construct_ss_data(
+        single_step_data_path, out_path, factor, train_ratio, seed=seed
+    )
 
     # 合并训练集数据
     terminate_entries_train = random.sample(terminate_entries_train, len(terminate_entries_train) // 10)
@@ -560,6 +695,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--factor", type=float, required=True, help="resize factor for images (e.g. 0.5)")
     parser.add_argument("--train_ratio", type=float, required=True, help="ratio of training data (e.g. 0.9)")
+    parser.add_argument("--seed", type=int, default=42, help="random seed for reproducible split and sampling")
     args = parser.parse_args()
     construct_ds(
         data_path=args.data_path,
@@ -568,4 +704,5 @@ if __name__ == "__main__":
         out_path=args.out_path,
         factor=args.factor,
         train_ratio=args.train_ratio,
+        seed=args.seed,
     )

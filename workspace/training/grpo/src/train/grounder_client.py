@@ -1,142 +1,143 @@
-"""Grounder HTTP Client for GRPO training reward computation"""
+"""Synchronous grounder client used by GRPO reward functions."""
 
-import asyncio
-import aiohttp
-import base64
-import json
-import logging
-from typing import List, Dict, Optional, Tuple
-from PIL import Image
+from __future__ import annotations
+
 import io
+import json
+import re
+from pathlib import Path
+from typing import List, Optional, Union
 
-logger = logging.getLogger(__name__)
+from PIL import Image
 
-GROUNDER_PROMPT_TEMPLATE = '''Based on the screenshot, user's intent and the description of the target UI element, provide the bounding box of the element using **absolute coordinates**.
-User's intent: {reasoning}
-Target element's description: {description}
-Your output should be a JSON object with the following format:
-{{"bbox": [x1, y1, x2, y2]}}'''
+from src.constants import DEFAULT_GROUNDER_URL, GROUNDER_PROMPT_TEMPLATE
+
+DEFAULT_GROUNDER_TIMEOUT = 30.0
 
 
-class GrounderClient:
-    """Async HTTP client for Grounder service"""
-    
-    def __init__(self, base_url: str = "http://localhost:8001/v1/chat/completions", timeout: float = 30.0):
-        self.base_url = base_url
-        self.timeout = aiohttp.ClientTimeout(total=timeout)
-        
-    def _image_to_base64(self, image_input) -> str:
-        """Convert image input to base64 string"""
-        if isinstance(image_input, str):
-            # 如果是文件路径
-            with open(image_input, "rb") as f:
-                return base64.b64encode(f.read()).decode("utf-8")
-        elif isinstance(image_input, Image.Image):
-            # 如果是 PIL Image
-            buffered = io.BytesIO()
-            image_input.save(buffered, format="JPEG")
-            return base64.b64encode(buffered.getvalue()).decode("utf-8")
-        elif isinstance(image_input, dict) and "image" in image_input:
-            # 如果是 dataset 返回的格式 {"image": PIL.Image}
-            return self._image_to_base64(image_input["image"])
+def _normalize_base_url(url: str) -> str:
+    """Normalize endpoint/path to OpenAI client base_url."""
+    u = (url or "").strip().rstrip("/")
+    if not u:
+        return DEFAULT_GROUNDER_URL
+
+    for suffix in ("/chat/completions", "/completions"):
+        if u.endswith(suffix):
+            u = u[: -len(suffix)]
+            break
+    return u
+
+
+def _image_to_b64(image: Union[Image.Image, str, Path]) -> Optional[str]:
+    try:
+        if isinstance(image, Image.Image):
+            img = image.convert("RGB")
         else:
-            raise ValueError(f"Unsupported image input type: {type(image_input)}")
-    
-    async def predict_bbox_async(
-        self, 
-        session: aiohttp.ClientSession,
-        image_input,
-        reasoning: str,
-        description: str
-    ) -> Optional[List[int]]:
-        """Async call to Grounder service"""
-        try:
-            image_base64 = self._image_to_base64(image_input)
-            prompt = GROUNDER_PROMPT_TEMPLATE.format(reasoning=reasoning, description=description)
-            
-            payload = {
-                "model": "",
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": [
-                            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}},
-                            {"type": "text", "text": prompt},
-                        ]
-                    }
-                ],
-                "temperature": 0
-            }
-            
-            async with session.post(self.base_url, json=payload) as response:
-                if response.status != 200:
-                    logger.warning(f"Grounder returned status {response.status}")
-                    return None
-                    
-                result = await response.json()
-                content = result["choices"][0]["message"]["content"]
-                
-                # 解析 bbox
-                # 处理可能的 markdown 包裹
-                if "```json" in content:
-                    import re
-                    match = re.search(r"```json\n(.*?)\n```", content, re.DOTALL)
-                    if match:
-                        content = match.group(1)
-                
-                parsed = json.loads(content)
-                bbox = parsed.get("bbox")
-                if bbox and len(bbox) == 4:
-                    return [int(x) for x in bbox]
-                return None
-                
-        except Exception as e:
-            logger.warning(f"Grounder call failed: {e}")
-            return None
-    
-    async def batch_predict_bbox_async(
-        self,
-        requests: List[Tuple]  # List of (image_input, reasoning, description)
-    ) -> List[Optional[List[int]]]:
-        """Batch async calls to Grounder service"""
-        async with aiohttp.ClientSession(timeout=self.timeout) as session:
-            tasks = [
-                self.predict_bbox_async(session, img, reasoning, desc)
-                for img, reasoning, desc in requests
-            ]
-            return await asyncio.gather(*tasks)
-    
-    def batch_predict_bbox(
-        self,
-        requests: List[Tuple]
-    ) -> List[Optional[List[int]]]:
-        """Synchronous wrapper for batch prediction"""
-        return asyncio.run(self.batch_predict_bbox_async(requests))
-    
-    def predict_bbox(
-        self,
-        image_input,
-        reasoning: str,
-        description: str
-    ) -> Optional[List[int]]:
-        """Synchronous single prediction"""
-        results = self.batch_predict_bbox([(image_input, reasoning, description)])
-        return results[0] if results else None
+            img = Image.open(str(image)).convert("RGB")
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG")
+        import base64
+
+        return base64.b64encode(buf.getvalue()).decode("utf-8")
+    except Exception:
+        return None
 
 
-# Global client instance (initialized lazily)
-_grounder_client: Optional[GrounderClient] = None
+def _clean_model_text(text: str) -> str:
+    text = re.sub(r"<think>.*?</think>", "", text or "", flags=re.DOTALL)
+    if "</think>" in text:
+        text = text.split("</think>", 1)[-1]
+    return text.strip()
 
 
-def get_grounder_client(base_url: str = "http://localhost:8001/v1/chat/completions") -> GrounderClient:
-    """Get or create global Grounder client"""
-    global _grounder_client
-    if _grounder_client is None:
-        _grounder_client = GrounderClient(base_url=base_url)
-    return _grounder_client
+def _extract_json_text(text: str) -> str:
+    cleaned = _clean_model_text(text)
+    block = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", cleaned, flags=re.DOTALL)
+    if block:
+        return block.group(1).strip()
+
+    # Extract first complete JSON object.
+    start = cleaned.find("{")
+    if start < 0:
+        return cleaned
+
+    depth = 0
+    for i in range(start, len(cleaned)):
+        ch = cleaned[i]
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                return cleaned[start : i + 1].strip()
+    return cleaned[start:].strip()
 
 
-def set_grounder_url(base_url: str):
-    """Set Grounder service URL"""
-    global _grounder_client
-    _grounder_client = GrounderClient(base_url=base_url)
+def _parse_bbox_from_response(text: str) -> Optional[List[int]]:
+    try:
+        obj = json.loads(_extract_json_text(text))
+    except Exception:
+        return None
+
+    bbox = obj.get("bbox")
+    if not isinstance(bbox, list) or len(bbox) != 4:
+        return None
+
+    try:
+        return [int(float(v)) for v in bbox]
+    except Exception:
+        return None
+
+
+def call_grounder(
+    image: Union[Image.Image, str, Path],
+    reasoning: str,
+    target_element: str,
+    url: str = DEFAULT_GROUNDER_URL,
+    timeout: float = DEFAULT_GROUNDER_TIMEOUT,
+) -> Optional[List[int]]:
+    """
+    Call grounder service and return bbox [x1, y1, x2, y2].
+
+    Returns None on any failure (HTTP/timeout/parse/etc.).
+    """
+    if not target_element or not str(target_element).strip():
+        return None
+
+    image_b64 = _image_to_b64(image)
+    if not image_b64:
+        return None
+
+    try:
+        from openai import OpenAI
+    except Exception:
+        return None
+
+    prompt = GROUNDER_PROMPT_TEMPLATE.format(
+        reasoning=(reasoning or "").strip(),
+        description=target_element.strip(),
+    )
+
+    try:
+        client = OpenAI(api_key="0", base_url=_normalize_base_url(url), timeout=float(timeout))
+        completion = client.chat.completions.create(
+            model="",
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"},
+                        },
+                        {"type": "text", "text": prompt},
+                    ],
+                }
+            ],
+            temperature=0,
+        )
+        message = completion.choices[0].message.content
+        text = message if isinstance(message, str) else str(message)
+        return _parse_bbox_from_response(text)
+    except Exception:
+        return None

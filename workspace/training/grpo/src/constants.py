@@ -1,13 +1,25 @@
-IGNORE_INDEX = -100
+"""Shared constants for GRPO training."""
 
-DEFAULT_IM_START_TOKEN = "<|im_start|>"
-DEFAULT_IM_END_TOKEN = "<|im_end|>"
-DEFAULT_IMAGE_TOKEN = "<|image_pad|>"
-LLAVA_IMAGE_TOKEN = "<image>"
-VISION_START_TOKEN = "<|vision_start|>"
-VISION_END_TOKEN = "<|vision_end|>"
+GROUNDER_PROMPT_TEMPLATE = (
+    "Based on the screenshot, user's intent and the description of the target UI element, "
+    "provide the bounding box of the element using **absolute coordinates**.\n"
+    "User's intent: {reasoning}\n"
+    "Target element's description: {description}\n"
+    "Your output should be a JSON object with the following format:\n"
+    '{{"bbox": [x1, y1, x2, y2]}}'
+)
 
-# Empty system message since instruction already contains full prompt
-SYSTEM_MESSAGE = ""
+# Keep this value aligned with grpo_plan.md. grounder_client will normalize it to OpenAI base_url.
+DEFAULT_GROUNDER_URL = "http://localhost:8001/v1/chat/completions"
 
-MULTIMODAL_KEYWORDS = ["pixel_values", "image_grid_thw"]
+# LoRA target suffixes for Qwen2.5-VL LLM blocks.
+DEFAULT_LORA_TARGET_SUFFIXES = (
+    "q_proj",
+    "k_proj",
+    "v_proj",
+    "o_proj",
+    "gate_proj",
+    "up_proj",
+    "down_proj",
+)
+

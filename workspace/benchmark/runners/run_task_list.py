@@ -2,7 +2,7 @@
 run_task_list.py - 批量运行 task_list.json 中的所有任务并生成结构化的测试数据
 
 用法:
-    python run_task_list.py --save_raw_data_path <路径> [--service_ip localhost] [--decider_port 8000] [--grounder_port 8001] [--planner_port 8002]
+    python run_task_list.py --save_raw_data_path <路径> [--service_ip localhost] [--decider_port 8000] [--grounder_port 8001] [--planner_port 8002] [--resume]
 
 输出结构:
     <save_raw_data_path>/
@@ -22,6 +22,7 @@ import time
 import logging
 import argparse
 import traceback
+import shutil
 from datetime import datetime
 
 # 添加项目根目录到 Python 路径
@@ -42,6 +43,44 @@ def _format_time(seconds):
         return f"{minutes}分{secs:.1f}秒 ({seconds:.1f}秒)"
     else:
         return f"{seconds:.1f}秒"
+
+
+def _load_json_safely(path):
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+
+def _is_task_completed(task_output_dir):
+    """判断单个任务目录是否可视为已完成（用于断点续跑）。"""
+    if not os.path.isdir(task_output_dir):
+        return False
+
+    actions_path = os.path.join(task_output_dir, "actions.json")
+    react_path = os.path.join(task_output_dir, "react.json")
+    if not (os.path.exists(actions_path) and os.path.exists(react_path)):
+        return False
+
+    actions_data = _load_json_safely(actions_path)
+    react_data = _load_json_safely(react_path)
+    if actions_data is None or react_data is None:
+        return False
+
+    actions = actions_data.get("actions") if isinstance(actions_data, dict) else None
+    if not isinstance(actions, list) or len(actions) == 0:
+        return False
+    if not isinstance(react_data, list) or len(react_data) == 0:
+        return False
+
+    action_count = actions_data.get("action_count")
+    if isinstance(action_count, int) and action_count != len(actions):
+        return False
+    if len(actions) != len(react_data):
+        return False
+
+    return True
 
 
 def _save_run_summary(output_root, overall_start_time, overall_end_time, task_execution_records):
@@ -77,7 +116,12 @@ def _save_run_summary(output_root, overall_start_time, overall_end_time, task_ex
         # 任务运行时间明细
         f.write("【任务运行时间明细】\n")
         for record in task_execution_records:
-            status_tag = " [执行失败]" if record['status'] == 'failed' else ""
+            if record['status'] == 'failed':
+                status_tag = " [执行失败]"
+            elif record['status'] == 'skipped':
+                status_tag = " [断点跳过]"
+            else:
+                status_tag = ""
             f.write(f"Task {record['global_index']} ({record['app']}/{record['type']}): "
                    f"运行时间 {record['execution_time']:.1f}秒{status_tag}\n")
         
@@ -118,7 +162,10 @@ def _save_run_summary(output_root, overall_start_time, overall_end_time, task_ex
         failed_count = sum(1 for r in task_execution_records if r['status'] == 'failed')
         if failed_count > 0:
             f.write(f"\n执行失败任务数: {failed_count}\n")
-        
+        skipped_count = sum(1 for r in task_execution_records if r['status'] == 'skipped')
+        if skipped_count > 0:
+            f.write(f"断点跳过任务数: {skipped_count}\n")
+
         f.write(f"{'='*80}\n")
     
     logging.info(f"运行时间汇总报告已保存: {summary_file}")
@@ -132,6 +179,7 @@ def main():
     parser.add_argument("--decider_port", type=int, required=True, help="Decider服务端口")
     parser.add_argument("--grounder_port", type=int, required=True, help="Grounder服务端口")
     parser.add_argument("--planner_port", type=int, required=True, help="Planner服务端口")
+    parser.add_argument("--resume", action="store_true", help="断点续跑：检测已有完整任务目录并跳过，缺失或损坏任务会重跑")
     
     args = parser.parse_args()
     
@@ -173,6 +221,7 @@ def main():
     # 记录每个任务的执行信息
     task_execution_records = []
     overall_start_time = time.time()
+    resume_skipped_count = 0
     
     logging.info(f"总任务数: {total_tasks}")
     logging.info("=" * 80)
@@ -181,6 +230,23 @@ def main():
     for app_key, types in task_list.items():
         for type_key, tasks in types.items():
             for task_desc in tasks:
+                task_output_dir = os.path.join(output_root, app_key, type_key, str(global_index))
+
+                if args.resume and _is_task_completed(task_output_dir):
+                    logging.info(f"\n[{global_index}/{total_tasks}] 已完成，断点跳过: {app_key}/{type_key}")
+                    task_execution_records.append({
+                        'global_index': global_index,
+                        'app': app_key,
+                        'type': type_key,
+                        'task_desc': task_desc,
+                        'execution_time': 0.0,
+                        'status': 'skipped',
+                        'error': None
+                    })
+                    resume_skipped_count += 1
+                    global_index += 1
+                    continue
+
                 logging.info(f"\n[{global_index}/{total_tasks}] 开始任务: {app_key}/{type_key}")
                 logging.info(f"任务描述: {task_desc}")
                 
@@ -199,8 +265,12 @@ def main():
                     logging.info(f"启动应用: {package_name}")
                     device.app_start(package_name)
                     
+                    # 断点续跑时：如果目录存在但不完整，先清理后重跑，避免混入脏结果
+                    if args.resume and os.path.isdir(task_output_dir):
+                        logging.info(f"检测到未完成或损坏目录，清理后重跑: {task_output_dir}")
+                        shutil.rmtree(task_output_dir)
+
                     # 创建任务输出目录
-                    task_output_dir = os.path.join(output_root, app_key, type_key, str(global_index))
                     os.makedirs(task_output_dir, exist_ok=True)
                     
                     # 执行任务
@@ -258,6 +328,8 @@ def main():
     
     logging.info("=" * 80)
     logging.info(f"所有任务执行完成！总任务数: {total_tasks}")
+    if args.resume:
+        logging.info(f"断点跳过任务数: {resume_skipped_count}")
     logging.info(f"结果保存在: {output_root}")
     
     if os.path.exists(error_log_path):

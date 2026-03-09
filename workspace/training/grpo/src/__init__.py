@@ -1,1 +1,2 @@
-# Post-training source module
+"""GRPO training package."""
+

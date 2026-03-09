@@ -27,11 +27,11 @@ if str(MOBIFLOW_ROOT) not in sys.path:
 try:
     import llmconfig
 except ImportError:
-    print("警告: 无法导入 llmconfig，将使用默认配置")
+    print("警告: 无法导入 llmconfig，将使用环境变量/默认配置")
     class MockLLMConfig:
-        API_KEY = "sk-4201f908ffb241d0b4f2eaaf81048add"
-        BASE_URL = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"  
-        MODEL = "qwen-vl-plus"
+        API_KEY = None
+        BASE_URL = "https://api.openai.com/v1"
+        MODEL = "gpt-5.4"
     llmconfig = MockLLMConfig()
 
 from avdag.verifier import verify_task_folder, VerifierOptions, make_llm_options
@@ -126,13 +126,20 @@ class UniversalTestRunner:
         """创建验证选项"""
         test_opts = self.config.get('test_options', {})
         
-        # 获取LLM配置
-        api_key = getattr(llmconfig, 'API_KEY', None)
-        base_url = getattr(llmconfig, 'BASE_URL', None) 
-        model = getattr(llmconfig, 'MODEL', None)
+        # 获取LLM配置（环境变量优先）
+        api_key = os.getenv("OPENAI_API_KEY") or getattr(llmconfig, 'API_KEY', None)
+        base_url = os.getenv("OPENAI_BASE_URL") or getattr(llmconfig, 'BASE_URL', "https://api.openai.com/v1")
+        model = os.getenv("OPENAI_MODEL") or getattr(llmconfig, 'MODEL', "gpt-5.4")
+
+        def _mask_key(k: Optional[str]) -> str:
+            if not k:
+                return "None"
+            if len(k) <= 8:
+                return "*" * len(k)
+            return f"{k[:4]}...{k[-4:]}"
         
         print("=== LLM 配置 ===")
-        print(f"API_KEY: {api_key}")
+        print(f"API_KEY: {_mask_key(api_key)}")
         print(f"BASE_URL: {base_url}")
         print(f"MODEL: {model}")
         
@@ -158,7 +165,7 @@ class UniversalTestRunner:
             opts = VerifierOptions(ocr=ocr_func)
             print("[验证] 已启用纯OCR验证模式")
             if not api_key or not base_url:
-                print("[警告] LLM_API_KEY/LLM_BASE_URL 未设置，已退化到 OCR-only 验证")
+                print("[警告] OPENAI_API_KEY/OPENAI_BASE_URL 未设置，已退化到 OCR-only 验证")
         
         # 应用其他选项
         if test_opts.get('ocr_frame_exclusive'):

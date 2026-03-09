@@ -36,6 +36,69 @@ class QwenSFTTrainer(Trainer):
     def __init__(self, *args, **kwargs):
         super(QwenSFTTrainer, self).__init__(*args, **kwargs)
 
+    def _metric_key_for_best_model(self):
+        metric_key = self.args.metric_for_best_model
+        if metric_key is None:
+            return None
+        if not metric_key.startswith("eval_"):
+            metric_key = f"eval_{metric_key}"
+        return metric_key
+
+    def _save_best_pt(self, metric_value):
+        if not self.args.should_save:
+            return
+
+        best_pt_path = os.path.join(self.args.output_dir, "best.pt")
+        best_metadata = {
+            "metric": float(metric_value),
+            "global_step": int(self.state.global_step),
+            "epoch": float(self.state.epoch) if self.state.epoch is not None else None,
+        }
+
+        if self.args.lora_enable:
+            lora_state_dict = get_peft_state_maybe_zero_3(
+                self.model.named_parameters(), self.args.lora_bias
+            )
+            torch.save(
+                {"metadata": best_metadata, "state_dict": lora_state_dict},
+                best_pt_path,
+            )
+            non_lora_state_dict = get_peft_state_non_lora_maybe_zero_3(
+                self.model.named_parameters(), require_grad_only=False
+            )
+            torch.save(
+                {"metadata": best_metadata, "state_dict": non_lora_state_dict},
+                os.path.join(self.args.output_dir, "best_non_lora_state_dict.bin"),
+            )
+        else:
+            model_state_dict = {
+                name: maybe_zero_3(param, ignore_status=True, name=name)
+                for name, param in self.model.named_parameters()
+            }
+            torch.save(
+                {"metadata": best_metadata, "state_dict": model_state_dict},
+                best_pt_path,
+            )
+
+    def _determine_best_metric(self, metrics, trial):
+        is_new_best_metric = super()._determine_best_metric(metrics, trial)
+        if not is_new_best_metric:
+            return is_new_best_metric
+
+        metric_key = self._metric_key_for_best_model()
+        if metric_key is not None and metric_key in metrics:
+            current_metric = metrics[metric_key]
+            self._save_best_pt(current_metric)
+            logger.info(
+                "Saved new best model snapshot to %s at step=%s (%s=%.6f)",
+                os.path.join(self.args.output_dir, "best.pt"),
+                self.state.global_step,
+                metric_key,
+                current_metric,
+            )
+
+        return is_new_best_metric
+
     def create_optimizer(self):
         """
         Setup the optimizer.

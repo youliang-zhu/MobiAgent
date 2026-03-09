@@ -1,5 +1,16 @@
 #!/usr/bin/env python3
-"""GRPO 数据集质量检查工具"""
+"""
+GRPO 数据集质量检查工具
+
+推荐检查指令（项目根目录执行）:
+python workspace/data_tools/grpo/grpo_data_check.py \
+    --grpo_data_path /home/agent/mobiAgent/MobiAgent/workspace/data/training_data/grpo_data
+
+若需要自动清理缺少 bounds 的 click 样本:
+python workspace/data_tools/grpo/grpo_data_check.py \
+    --grpo_data_path /home/agent/mobiAgent/MobiAgent/workspace/data/training_data/grpo_data \
+    --auto_fix
+"""
 
 import os
 import json
@@ -104,6 +115,11 @@ class GRPODataChecker:
                     param_issues += 1
                     img_path = sample.get('images', ['unknown'])[0]
                     print(f"  ⚠️ 样本 {idx}: click 缺少 bounds, 图片: {img_path}")
+                    should_remove = True
+                elif 'target_element' not in gt or not gt['target_element']:
+                    param_issues += 1
+                    img_path = sample.get('images', ['unknown'])[0]
+                    print(f"  ⚠️ 样本 {idx}: click 缺少 target_element, 图片: {img_path}")
                     should_remove = True
             elif action_type == 'input' and 'text' not in gt:
                 param_issues += 1

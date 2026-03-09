@@ -8,6 +8,16 @@ from typing import List, Optional, Dict, Any
 from PIL import Image
 from tqdm import tqdm
 
+'''
+python workspace/data_tools/grpo/construct_grpo.py \
+    --data_path /home/agent/mobiAgent/MobiAgent/collect/manual/data/淘宝 \
+    --out_path /home/agent/mobiAgent/MobiAgent/workspace/data/training_data/grpo_data \
+    --factor 0.5 \
+    --train_ratio 0.9 \
+    --total_samples 817 \
+    --seed 42
+'''
+
 # 允许直接脚本运行时导入项目模块
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 if PROJECT_ROOT not in sys.path:
@@ -120,6 +130,7 @@ def collect_all_steps(data_path: str) -> List[Dict]:
     all_steps = []
     
     for root, dirs, files in tqdm(os.walk(data_path), desc="Scanning trajectories"):
+        dirs.sort()
         if "actions.json" not in files or "react.json" not in files or "parse.error" in files:
             continue
         
@@ -270,15 +281,17 @@ def sample_steps(all_steps: List[Dict], total_samples: int,
 
 
 def construct_grpo_dataset(data_path: str, out_path: str, factor: float = 0.5,
-                           train_ratio: float = 0.9, total_samples: int = 1500):
+                           train_ratio: float = 0.9, total_samples: int = 1500, seed: int = 42):
     """
     构建 GRPO 数据集
     """
     os.makedirs(out_path, exist_ok=True)
+    random.seed(seed)
     
     # 收集所有步骤
     print("Collecting all steps from trajectories...")
     all_steps = collect_all_steps(data_path)
+    all_steps.sort(key=lambda x: (x["root"], x["step_idx"]))
     
     if len(all_steps) == 0:
         print("Error: No valid steps found!")
@@ -346,8 +359,9 @@ def construct_grpo_dataset(data_path: str, out_path: str, factor: float = 0.5,
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="GRPO dataset construction")
-    parser.add_argument("--data_path", type=str, required=True,
-                        help="Root path of trajectory data")
+    parser.add_argument("--data_path", type=str,
+                        default="/scratch/youliang/mobidata/sft_data/sft_data_taobao100",
+                        help="Root path of trajectory data (default: /scratch/youliang/mobidata/sft_data/sft_data_taobao100)")
     parser.add_argument("--out_path", type=str, required=True,
                         help="Output path for GRPO dataset")
     parser.add_argument("--factor", type=float, required=True,
@@ -356,6 +370,8 @@ if __name__ == "__main__":
                         help="Ratio of training data (e.g. 0.9)")
     parser.add_argument("--total_samples", type=int, required=True,
                         help="Total number of samples to collect (e.g. 1500)")
+    parser.add_argument("--seed", type=int, default=42,
+                        help="Random seed for reproducibility")
     
     args = parser.parse_args()
     
@@ -365,4 +381,5 @@ if __name__ == "__main__":
         factor=args.factor,
         train_ratio=args.train_ratio,
         total_samples=args.total_samples,
+        seed=args.seed,
     )

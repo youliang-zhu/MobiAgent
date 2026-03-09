@@ -18,7 +18,8 @@
 - 批量测试整个时间戳文件夹:
   python batch_structural_evaluator.py --batch-mode \\
       --timestamp 20251106_162407 \\
-      --model mobiagent
+      --model mobiagent \\
+      --openai-api-key <YOUR_OPENAI_API_KEY>
 """
 
 import os
@@ -42,6 +43,14 @@ if str(Path(__file__).resolve().parent) not in sys.path:
 # 导入离线评估核心功能
 from trace_evaluator import UniversalTestRunner, TestResult
 from avdag.logger import configure_logging
+
+
+def _mask_key(k: Optional[str]) -> str:
+    if not k:
+        return "None"
+    if len(k) <= 8:
+        return "*" * len(k)
+    return f"{k[:4]}...{k[-4:]}"
 
 
 def _test_trace_worker(args):
@@ -600,7 +609,9 @@ def main():
   # 批量测试整个时间戳文件夹（自动读取 raw_runs 并输出到 benchmark_results）
   python batch_structural_evaluator.py --batch-mode \\
       --raw-data-path workspace/data/raw_runs/mobiagent/20251106_162407 \\
-      --eval-result-path workspace/data/benchmark_results/mobiagent/20251106_162407
+      --eval-result-path workspace/data/benchmark_results/mobiagent/20251106_162407 \\
+      --openai-api-key <YOUR_OPENAI_API_KEY> \\
+      --openai-model gpt-5.4
         """
     )
     
@@ -613,6 +624,12 @@ def main():
                        help='评估结果输出根目录 (批量模式必需，如 workspace/data/benchmark_results/mobiagent/20251106_162407)')
     parser.add_argument('--workers', type=int, required=True,
                        help='并行 worker 数量 (如 2，设为 1 禁用并行)')
+    parser.add_argument('--openai-api-key', type=str, default=None,
+                       help='OpenAI API Key；不传则读取环境变量 OPENAI_API_KEY')
+    parser.add_argument('--openai-base-url', type=str, default='https://api.openai.com/v1',
+                       help='OpenAI Base URL，默认 https://api.openai.com/v1')
+    parser.add_argument('--openai-model', type=str, default='gpt-5.4',
+                       help='LLM模型名，默认 gpt-5.4')
     
     # 单个测试模式参数
     parser.add_argument('config_file', nargs='?', 
@@ -625,6 +642,19 @@ def main():
                        help='评估结果目录 (如 workspace/data/benchmark_results/mobiagent/20251106_162407/taobao)，默认与 data-base 相同')
     
     args = parser.parse_args()
+
+    # 统一注入 OpenAI 配置到环境变量（trace_evaluator 会优先读取这些变量）
+    if args.openai_api_key:
+        os.environ['OPENAI_API_KEY'] = args.openai_api_key
+    if args.openai_base_url:
+        os.environ['OPENAI_BASE_URL'] = args.openai_base_url
+    if args.openai_model:
+        os.environ['OPENAI_MODEL'] = args.openai_model
+
+    print("=== OpenAI 配置 ===")
+    print(f"OPENAI_API_KEY: {_mask_key(os.getenv('OPENAI_API_KEY'))}")
+    print(f"OPENAI_BASE_URL: {os.getenv('OPENAI_BASE_URL')}")
+    print(f"OPENAI_MODEL: {os.getenv('OPENAI_MODEL')}")
     
     # 判断是批量模式还是单个测试模式
     if args.batch_mode:

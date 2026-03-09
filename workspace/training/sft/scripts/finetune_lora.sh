@@ -40,20 +40,26 @@ echo "  Gradient Accumulation Steps: $GRAD_ACCUM_STEPS"
 # ============================================
 # Data Paths (MODIFY THESE FOR YOUR SETUP)
 # ============================================
-DATA_PATH="/home/agent/mobiAgent/MobiAgent/workspace/data/training_data/sft_data/mobimind_decider_train.json"
-EVAL_PATH="/home/agent/mobiAgent/MobiAgent/workspace/data/training_data/sft_data/mobimind_decider_val.json"
-OUTPUT_DIR="output/learner_decider_lora_sft"
+DATA_PATH="/scratch/youliang/mobidata/sft_data/sft_data_taobao100/mobimind_decider_train.json"
+EVAL_PATH="/scratch/youliang/mobidata/sft_data/sft_data_taobao100/mobimind_decider_val.json"
+OUTPUT_DIR="output/learner_7_decider_lora_sft"
+LOG_DIR="output/learner_7_decider_lora_sft/runs"
+TRAIN_LOG="$LOG_DIR/train_$(date +%Y%m%d_%H%M%S).log"
+mkdir -p "$LOG_DIR"
+echo "Train log: $TRAIN_LOG"
 
 # ============================================
 # Training
 # ============================================
+
+# --lora_target_modules "['k_proj', 'v_proj', 'o_proj', 'gate_proj', 'up_proj', 'down_proj']" \
+
 deepspeed src/train/train_sft.py \
     --use_liger_kernel True \
     --lora_enable True \
     --vision_lora False \
     --use_dora False \
     --lora_namespan_exclude "['lm_head', 'embed_tokens']" \
-    --lora_target_modules "['k_proj', 'v_proj', 'o_proj', 'gate_proj', 'up_proj', 'down_proj']" \
     --lora_rank 64 \
     --lora_alpha 64 \
     --lora_dropout 0.05 \
@@ -88,7 +94,7 @@ deepspeed src/train/train_sft.py \
     --report_to tensorboard \
     --lazy_preprocess True \
     --eval_strategy "steps" \
-    --eval_steps 36 \
+    --eval_steps 18 \
     --save_strategy "steps" \
     --save_steps 144 \
     --save_total_limit 3 \
@@ -96,4 +102,6 @@ deepspeed src/train/train_sft.py \
     --metric_for_best_model "eval_loss" \
     --greater_is_better False \
     --dataloader_num_workers 4 \
-    --dataloader_drop_last True
+    --dataloader_drop_last True \
+    --logging_dir $LOG_DIR \
+    2>&1 | tee "$TRAIN_LOG"
