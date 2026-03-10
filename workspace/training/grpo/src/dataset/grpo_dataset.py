@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -20,6 +21,14 @@ def _load_image(path: str) -> Image.Image:
     if not p.exists():
         raise FileNotFoundError(f"Image file not found: {p}")
     return Image.open(p).convert("RGB")
+
+
+def _extract_task(instruction: str) -> str:
+    text = instruction or ""
+    m = re.search(r'Now your task is\\s+"([^"]+)"', text)
+    if m:
+        return m.group(1).strip()
+    return ""
 
 
 class GRPODataset(Dataset):
@@ -80,6 +89,9 @@ class GRPODataset(Dataset):
             "prompt": prompt,
             "images": images,
             "gt_action": sample.get("gt_action", {}),
+            "dataset_idx": int(index),
+            "image_path": image_paths[0],
+            "task": _extract_task(instruction),
         }
 
 

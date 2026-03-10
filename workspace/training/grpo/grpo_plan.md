@@ -864,7 +864,7 @@ tail -f /scratch/youliang/models/decider_grpo_1/runs/train_*.log \
 3. 跑一次 API 测试
     conda run -n grpo python workspace/training/grpo/test_grounder_api.py
 4. 再启动训练
-    RUN_NAME=decider_grpo_2_test bash workspace/training/grpo/scripts/finetune_grpo.sh
+    RUN_NAME=decider_grpo_3_test bash workspace/training/grpo/scripts/finetune_grpo.sh
 
 
 ```bash

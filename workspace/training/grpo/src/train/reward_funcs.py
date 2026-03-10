@@ -89,11 +89,19 @@ def _write_reward_batch_log(
                 continue
 
             gt_idx = sample_items[0]["gt_index"]
+            dataset_idx = sample_items[0].get("dataset_idx")
+            sample_task = sample_items[0].get("task")
+            sample_image_path = sample_items[0].get("image_path")
             gt = gt_action[gt_idx] if gt_action and 0 <= gt_idx < len(gt_action) else {}
             img = images[gt_idx] if images and 0 <= gt_idx < len(images) else None
 
             f.write("=" * 80 + "\n")
-            f.write(f"[sample {sample_idx:04d}] gt_index={gt_idx} image={_image_brief(img)}\n")
+            f.write(
+                f"[sample {sample_idx:04d}] gt_index={gt_idx} "
+                f"dataset_idx={dataset_idx} image={_image_brief(img)}\n"
+            )
+            f.write(f"task: {sample_task or ''}\n")
+            f.write(f"image_path: {sample_image_path or ''}\n")
             f.write(f"gt_action:\n{_safe_json(gt)}\n")
 
             for row in sample_items:
@@ -420,6 +428,20 @@ def decider_reward(
 
     n_gt = len(gt_action) if gt_action else 0
     n_img = len(images) if images else 0
+    dataset_indices = kwargs.get("dataset_idx")
+    image_paths = kwargs.get("image_path")
+    tasks = kwargs.get("task")
+
+    if not isinstance(dataset_indices, list):
+        dataset_indices = []
+    if not isinstance(image_paths, list):
+        image_paths = []
+    if not isinstance(tasks, list):
+        tasks = []
+
+    n_dataset_idx = len(dataset_indices)
+    n_image_paths = len(image_paths)
+    n_tasks = len(tasks)
 
     global _FIRST_BATCH_LOGGED
 
@@ -461,6 +483,9 @@ def decider_reward(
                 "pred_bbox": detail.get("pred_bbox"),
                 "click_iou": detail.get("click_iou"),
                 "completion_text": _completion_to_text(completion),
+                "dataset_idx": dataset_indices[i % n_dataset_idx] if n_dataset_idx else None,
+                "image_path": image_paths[i % n_image_paths] if n_image_paths else None,
+                "task": tasks[i % n_tasks] if n_tasks else None,
             }
         )
 
