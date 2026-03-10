@@ -25,7 +25,7 @@ def _load_image(path: str) -> Image.Image:
 
 def _extract_task(instruction: str) -> str:
     text = instruction or ""
-    m = re.search(r'Now your task is\\s+"([^"]+)"', text)
+    m = re.search(r'Now your task is\s+"([^"]+)"', text)
     if m:
         return m.group(1).strip()
     return ""

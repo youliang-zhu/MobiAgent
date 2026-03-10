@@ -294,10 +294,22 @@ CUDA_VISIBLE_DEVICES=1 conda run -n MobiMind vllm serve "$GROUNDER_MODEL" \
 echo "Grounder service stopped."
 ```
 
-启动（在独立 terminal 中运行，保持长期运行）：
+启动（统一使用 tmux，保持长期运行）：
 
 ```bash
-bash workspace/training/grpo/scripts/deploy_grounder.sh
+# 1) 新建 grounder 会话（后台）
+tmux new -d -s grpo_grounder \
+  "cd /home/agent/mobiAgent/MobiAgent && bash workspace/training/grpo/scripts/deploy_grounder.sh"
+
+# 2) 查看 grounder 日志（可选）
+tmux attach -t grpo_grounder
+# 退出但不停止：Ctrl+b 然后按 d
+```
+
+结束 Grounder（训练结束后执行）：
+
+```bash
+tmux kill-session -t grpo_grounder
 ```
 
 等待出现 `INFO:     Application startup complete.`
@@ -817,14 +829,22 @@ conda run -n grpo python workspace/training/grpo/test_base_model_generation.py \
 
 ### 8.2 启动冒烟训练
 
-在 `finetune_grpo.sh` 中临时将 `--max_steps` 改为 `50`，然后：
+在 `finetune_grpo.sh` 中临时将 `--max_steps` 改为 `50`，然后（统一使用 tmux）：
 
 ```bash
 # 确认 Grounder 在线
 curl -s http://localhost:8001/v1/models
 
-# 启动冒烟训练
-bash workspace/training/grpo/scripts/finetune_grpo.sh
+# 启动冒烟训练（后台）
+tmux new -d -s grpo_smoke_train \
+  "cd /home/agent/mobiAgent/MobiAgent && RUN_NAME=decider_grpo_smoke MAX_STEPS=50 bash workspace/training/grpo/scripts/finetune_grpo.sh"
+
+# 查看训练日志（可选）
+tmux attach -t grpo_smoke_train
+# 退出但不停止：Ctrl+b 然后按 d
+
+# 冒烟结束后关闭会话
+tmux kill-session -t grpo_smoke_train
 ```
 
 ### 8.3 实时监控
@@ -855,29 +875,30 @@ tail -f /scratch/youliang/models/decider_grpo_1/runs/train_*.log \
 - 使用最新路径约定：输出统一写入 `workspace/training/grpo/output/<run_name>`
 - 本轮 pilot 建议：`run_name=decider_grpo_1`
 
-执行命令（推荐）：
-
-1. 先启动 grounder（手动）
-    bash workspace/training/grpo/scripts/deploy_grounder.sh
-2. 健康检查
-    curl -s http://localhost:8001/v1/models
-3. 跑一次 API 测试
-    conda run -n grpo python workspace/training/grpo/test_grounder_api.py
-4. 再启动训练
-    RUN_NAME=decider_grpo_3_test bash workspace/training/grpo/scripts/finetune_grpo.sh
-
+执行命令（推荐，统一 tmux）：
 
 ```bash
-RUN_NAME=decider_grpo_1 \
-bash workspace/training/grpo/scripts/finetune_grpo.sh
-```
+# 1) 先启动 grounder（后台）
+tmux new -d -s grpo_grounder \
+  "cd /home/agent/mobiAgent/MobiAgent && bash workspace/training/grpo/scripts/deploy_grounder.sh"
 
-等价显式写法（可选）：
+# 2) 健康检查
+curl -s http://localhost:8001/v1/models
 
-```bash
-OUTPUT_ROOT=/home/agent/mobiAgent/MobiAgent/workspace/training/grpo/output \
-RUN_NAME=decider_grpo_1 \
-bash workspace/training/grpo/scripts/finetune_grpo.sh
+# 3) 跑一次 API 测试
+conda run -n grpo python workspace/training/grpo/test_grounder_api.py
+
+# 4) 启动 Pilot 训练（后台）
+tmux new -d -s grpo_pilot_train \
+  "cd /home/agent/mobiAgent/MobiAgent && RUN_NAME=decider_grpo_1 MAX_STEPS=500 bash workspace/training/grpo/scripts/finetune_grpo.sh"
+
+# 5) 查看训练日志（可选）
+tmux attach -t grpo_pilot_train
+# 退出但不停止：Ctrl+b 然后按 d
+
+# 6) Pilot 结束后关闭 tmux
+tmux kill-session -t grpo_pilot_train
+tmux kill-session -t grpo_grounder
 ```
 
 本阶段目录结构预期：
@@ -945,6 +966,8 @@ conda run -n grpo python workspace/training/grpo/test_base_model_generation.py \
 
 3.4条rollout完全一样，一起对一起错，导致训练练不动，改成6也没用。也许尝试改温度？
 
+4.温度调到1.5直接开始放飞自我，韩文阿拉伯文都来了，输出的东西完全没有逻辑
+
 ---
 
 ## 十、阶段 8：正式训练
@@ -967,12 +990,17 @@ OUTPUT_DIR="/scratch/youliang/models/decider_grpo_1"
 ### 10.2 完成后评估
 
 ```bash
-# 1. 确保 Grounder 服务运行（GPU 1）
-bash workspace/training/grpo/scripts/deploy_grounder.sh &
+# 1) 确保 Grounder 服务运行（GPU 1，tmux 后台）
+tmux new -d -s grpo_grounder \
+  "cd /home/agent/mobiAgent/MobiAgent && bash workspace/training/grpo/scripts/deploy_grounder.sh"
 
-# 2. 部署 grpo 训练后的 decider（参考 SFT deploy 流程，配置好 config.json）
+# 2) 正式训练（tmux 后台）
+tmux new -d -s grpo_formal_train \
+  "cd /home/agent/mobiAgent/MobiAgent && RUN_NAME=decider_grpo_formal MAX_STEPS=2000 SAVE_STEPS=200 EVAL_STEPS=100 bash workspace/training/grpo/scripts/finetune_grpo.sh"
 
-# 3. 跑 benchmark
+# 3) 部署 grpo 训练后的 decider（参考 SFT deploy 流程，配置好 config.json）
+
+# 4) 跑 benchmark
 python workspace/benchmark/runners/run_task_list.py \
     --save_raw_data_path workspace/data/raw_runs/grpo_eval \
     --service_ip localhost \
@@ -980,12 +1008,16 @@ python workspace/benchmark/runners/run_task_list.py \
     --grounder_port 8001 \
     --planner_port 8002
 
-# 4. 结构化评估
+# 5) 结构化评估
 python workspace/benchmark/evaluators/batch_structural_evaluator.py \
     --batch-mode \
     --raw-data-path workspace/data/raw_runs/grpo_eval \
     --eval-result-path workspace/data/benchmark_results/grpo_eval \
     --workers 2
+
+# 6) 正式训练结束后关闭 tmux
+tmux kill-session -t grpo_formal_train
+tmux kill-session -t grpo_grounder
 ```
 
 ---
@@ -1054,6 +1086,6 @@ python workspace/benchmark/evaluators/batch_structural_evaluator.py \
 
 | 服务 | GPU | 端口 | 启动命令 |
 |------|-----|------|---------|
-| Grounder（常驻）| GPU 1 | 8001 | `bash scripts/deploy_grounder.sh` |
-| grpo 训练 | GPU 0 | — | `bash scripts/finetune_grpo.sh` |
+| Grounder（常驻）| GPU 1 | 8001 | `tmux new -d -s grpo_grounder "bash scripts/deploy_grounder.sh"` |
+| grpo 训练 | GPU 0 | — | `tmux new -d -s <train_session> "bash scripts/finetune_grpo.sh"` |
 | Decider 推理（评估用）| GPU 0 | 8000 | 参考 SFT deploy 流程 |
