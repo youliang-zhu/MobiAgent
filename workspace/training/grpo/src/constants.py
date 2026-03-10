@@ -22,4 +22,3 @@ DEFAULT_LORA_TARGET_SUFFIXES = (
     "up_proj",
     "down_proj",
 )
-

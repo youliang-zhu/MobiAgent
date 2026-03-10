@@ -1,6 +1,7 @@
 import ast
 import importlib.util
 import os
+import shutil
 from pathlib import Path
 from typing import List
 
@@ -21,6 +22,83 @@ local_rank = None
 def rank0_print(*args):
     if local_rank in (0, "0", None, -1):
         print(*args)
+
+
+def _checkpoint_step(checkpoint_dir: Path) -> int:
+    name = checkpoint_dir.name
+    if not name.startswith("checkpoint-"):
+        return -1
+    try:
+        return int(name.split("-", 1)[1])
+    except Exception:
+        return -1
+
+
+def _list_checkpoints(output_dir: Path) -> List[Path]:
+    checkpoints = [
+        p for p in output_dir.glob("checkpoint-*")
+        if p.is_dir() and _checkpoint_step(p) >= 0
+    ]
+    return sorted(checkpoints, key=_checkpoint_step)
+
+
+def _select_best_checkpoint(trainer: QwenGRPOTrainer, output_dir: Path):
+    # Prefer explicit eval metric if available in log history.
+    candidate_metric_keys = ("eval_reward/mean", "eval_reward_mean", "eval_reward")
+    best_step = None
+    best_metric = None
+    best_value = None
+    for row in (trainer.state.log_history or []):
+        if not isinstance(row, dict):
+            continue
+        step = row.get("step")
+        if step is None:
+            continue
+        for metric_key in candidate_metric_keys:
+            value = row.get(metric_key)
+            if isinstance(value, (int, float)):
+                if best_value is None or float(value) > float(best_value):
+                    best_value = float(value)
+                    best_step = int(step)
+                    best_metric = metric_key
+                break
+
+    if best_step is not None:
+        metric_ckpt = output_dir / f"checkpoint-{best_step}"
+        if metric_ckpt.exists():
+            return metric_ckpt, best_metric, best_value
+
+    # Fallback to Trainer best pointer if configured.
+    state_best = getattr(trainer.state, "best_model_checkpoint", None)
+    if state_best:
+        state_best_path = Path(state_best)
+        if state_best_path.exists():
+            return state_best_path, "state.best_model_checkpoint", None
+
+    # Final fallback: latest checkpoint.
+    checkpoints = _list_checkpoints(output_dir)
+    if checkpoints:
+        return checkpoints[-1], "latest_checkpoint_fallback", None
+
+    return None, None, None
+
+
+def _materialize_best_alias(output_dir: Path, best_ckpt: Path) -> str:
+    best_path = output_dir / "best"
+    if best_path.exists() or best_path.is_symlink():
+        if best_path.is_symlink() or best_path.is_file():
+            best_path.unlink()
+        else:
+            shutil.rmtree(best_path)
+
+    try:
+        # Keep folder size stable by default via symlink.
+        link_target = best_ckpt.name if best_ckpt.parent == output_dir else str(best_ckpt.resolve())
+        best_path.symlink_to(link_target)
+        return f"symlink -> {link_target}"
+    except Exception:
+        shutil.copytree(best_ckpt, best_path)
+        return f"copytree from {best_ckpt.name}"
 
 
 def _load_sft_monkey_patch(module_name: str, file_path: Path):
@@ -106,7 +184,7 @@ def train():
 
     model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
         model_args.model_id,
-        torch_dtype=compute_dtype,
+        dtype=compute_dtype,
         attn_implementation="flash_attention_2" if not model_args.disable_flash_attn2 else "sdpa",
     )
     model.config.use_cache = False
@@ -169,8 +247,12 @@ def train():
     os.environ["GROUNDER_URL"] = training_args.grounder_url
     os.environ["GROUNDER_TIMEOUT"] = str(training_args.grounder_timeout)
     os.environ["LOG_REWARD_DETAILS"] = "1" if training_args.log_reward_details else "0"
+    os.environ["GRPO_NUM_GENERATIONS"] = str(training_args.num_generations)
+    os.environ["REWARD_LOG_DIR"] = str(Path(training_args.output_dir) / "reward_logs")
+    os.environ.setdefault("ENABLE_REWARD_LOGGER", "1")
     rank0_print(f"GROUNDER_URL={os.environ['GROUNDER_URL']}")
     rank0_print(f"GROUNDER_TIMEOUT={os.environ['GROUNDER_TIMEOUT']}")
+    rank0_print(f"REWARD_LOG_DIR={os.environ['REWARD_LOG_DIR']}")
 
     data_module = make_grpo_data_module(
         processor=processor,
@@ -188,11 +270,11 @@ def train():
         train_dataset=data_module["train_dataset"],
         eval_dataset=data_module["eval_dataset"],
         processing_class=processor,
-        data_collator=data_module["data_collator"],
     )
 
     output_dir = Path(training_args.output_dir)
-    if list(output_dir.glob("checkpoint-*")):
+    output_dir.mkdir(parents=True, exist_ok=True)
+    if _list_checkpoints(output_dir):
         trainer.train(resume_from_checkpoint=True)
     else:
         trainer.train()
@@ -208,7 +290,20 @@ def train():
         )
         torch.save(non_lora_state_dict, output_dir / "non_lora_state_dict.bin")
 
+    best_ckpt, best_metric, best_value = _select_best_checkpoint(trainer, output_dir)
+    if best_ckpt is None:
+        rank0_print("No checkpoint found. Skip creating output_dir/best alias.")
+    else:
+        alias_desc = _materialize_best_alias(output_dir, best_ckpt)
+        if best_value is None:
+            rank0_print(
+                f"Best checkpoint alias created: {output_dir / 'best'} ({alias_desc}, source={best_metric})."
+            )
+        else:
+            rank0_print(
+                f"Best checkpoint alias created: {output_dir / 'best'} ({alias_desc}, metric={best_metric}, value={best_value:.6f})."
+            )
+
 
 if __name__ == "__main__":
     train()
-
