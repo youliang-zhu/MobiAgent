@@ -985,7 +985,6 @@ OUTPUT_DIR="/scratch/youliang/models/decider_grpo_1"
 --eval_steps   100
 ```
 
-推荐从头开始（不在 Pilot checkpoint 续训），因为 Pilot 仅用于链路验证。
 
 ### 10.2 完成后评估
 

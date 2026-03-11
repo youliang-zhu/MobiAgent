@@ -148,6 +148,26 @@ class GRPODataChecker:
                 self._fix_invalid_samples(train_data, val_data, train_to_remove, val_to_remove, images_to_remove)
         else:
             print("✓ 所有参数完整")
+
+    def check_first_step_ratio(self, train_data, val_data):
+        """检查第一步样本占比（通过 history 为 No history 判断）。"""
+        print("\n" + "="*60 + "\n第一步占比检查\n" + "="*60)
+
+        all_data = (train_data or []) + (val_data or [])
+        total = len(all_data)
+        if total == 0:
+            print("⚠️ 数据为空，跳过第一步占比检查")
+            return
+
+        first_step_count = 0
+        marker = "Your action history is:\n(No history)"
+        for sample in all_data:
+            instruction = sample.get("instruction", "")
+            if isinstance(instruction, str) and marker in instruction:
+                first_step_count += 1
+
+        ratio = first_step_count / total
+        print(f"第一步样本数: {first_step_count}/{total} ({ratio * 100:.2f}%)")
     
     def _fix_invalid_samples(self, train_data, val_data, train_to_remove, val_to_remove, images_to_remove):
         print(f"\n开始清理无效样本...")
@@ -319,6 +339,7 @@ class GRPODataChecker:
         train_data, val_data = self.check_basic_stats()
         self.check_data_integrity(train_data, val_data)
         self.check_action_quality(train_data, val_data)
+        self.check_first_step_ratio(train_data, val_data)
         self.check_images(train_data, val_data)
         self.generate_samples(train_data, val_data)
         

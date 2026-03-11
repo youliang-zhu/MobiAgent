@@ -2,8 +2,15 @@
 run_task_list.py - 批量运行 task_list.json 中的所有任务并生成结构化的测试数据
 
 用法:
-    python run_task_list.py --save_raw_data_path <路径> [--service_ip localhost] [--decider_port 8000] [--grounder_port 8001] [--planner_port 8002] [--resume]
-
+    python run_task_list.py --save_raw_data_path <路径> [--task_list_file task_list_taobao.json] [--service_ip localhost] [--decider_port 8000] [--grounder_port 8001] [--planner_port 8002] [--resume]
+示例：
+    python workspace/benchmark/runners/run_task_list.py \
+        --save_raw_data_path workspace/data/raw_runs/grpo_500_3.11 \
+        --task_list_file task_list_taobao.json \
+        --service_ip localhost \
+        --decider_port 8000 \
+        --grounder_port 8001 \
+        --planner_port 8002
 输出结构:
     <save_raw_data_path>/
       error_log.txt
@@ -173,8 +180,14 @@ def _save_run_summary(output_root, overall_start_time, overall_end_time, task_ex
 
 def main():
     # 解析命令行参数
-    parser = argparse.ArgumentParser(description="批量运行 task_list.json 中的所有任务")
+    parser = argparse.ArgumentParser(description="批量运行任务列表配置中的所有任务")
     parser.add_argument("--save_raw_data_path", type=str, required=True, help="原始运行数据保存路径（如 workspace/data/raw_runs/mobiagent/20251106_162407）")
+    parser.add_argument(
+        "--task_list_file",
+        type=str,
+        default="task_list_taobao.json",
+        help="任务列表配置文件名（位于 workspace/benchmark/configs）或绝对路径，默认 task_list_taobao.json",
+    )
     parser.add_argument("--service_ip", type=str, required=True, help="服务IP地址")
     parser.add_argument("--decider_port", type=int, required=True, help="Decider服务端口")
     parser.add_argument("--grounder_port", type=int, required=True, help="Grounder服务端口")
@@ -196,10 +209,14 @@ def main():
     logging.info("连接Android设备...")
     device = AndroidDevice()
 
-    # 读取 task_list.json（使用绝对路径）
-    task_list_path = os.path.join(project_root, "workspace", "benchmark", "configs", "task_list.json")
+    # 读取任务列表（支持传入 configs 下文件名或绝对路径）
+    if os.path.isabs(args.task_list_file):
+        task_list_path = args.task_list_file
+    else:
+        task_list_path = os.path.join(project_root, "workspace", "benchmark", "configs", args.task_list_file)
+
     if not os.path.exists(task_list_path):
-        logging.error(f"task_list.json 未找到: {task_list_path}")
+        logging.error(f"任务列表文件未找到: {task_list_path}")
         sys.exit(1)
     
     with open(task_list_path, "r", encoding="utf-8") as f:
